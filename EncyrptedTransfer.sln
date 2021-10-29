@@ -1,0 +1,25 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.31729.503
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Gerk.Crypto.EncyrptedTransfer", "Gerk.Crypto.EncyrptedTransfer\Gerk.Crypto.EncyrptedTransfer.csproj", "{0B8921AE-A3A3-4DB7-AB9C-3C95339F423B}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{0B8921AE-A3A3-4DB7-AB9C-3C95339F423B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0B8921AE-A3A3-4DB7-AB9C-3C95339F423B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0B8921AE-A3A3-4DB7-AB9C-3C95339F423B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0B8921AE-A3A3-4DB7-AB9C-3C95339F423B}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {C68F8244-C6B9-462E-910B-5D59628F505E}
+	EndGlobalSection
+EndGlobal
