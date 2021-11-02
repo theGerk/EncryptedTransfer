@@ -38,23 +38,19 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		private ulong bytesWritten = 0;
 		private uint writeBlockSize;
 
+		private bool leaveOpen;
+
 		/// <summary>
 		/// The public key for the other end of the connection. Can be used as an identity.
 		/// </summary>
 		public RSAParameters remotePublicKey { private set; get; }
 
-		private Tunnel(Stream stream)
+		private Tunnel(Stream stream, bool leaveOpen)
 		{
 			this.underlyingStream = stream;
+			this.leaveOpen = leaveOpen;
 		}
-
-		private static (A, B) CleanupAndReturn<A, B>(A tunnelToDispose, B creationError) where A : IDisposable
-		{
-			tunnelToDispose.Dispose();
-			return (default, creationError);
-		}
-
-		private void initCryptoStreams()
+		private void InitCryptoStreams()
 		{
 			var dec = sharedKey.CreateDecryptor();
 			var enc = sharedKey.CreateEncryptor();
@@ -64,9 +60,9 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			writeStream = new CryptoStream(underlyingStream, enc, CryptoStreamMode.Write);
 		}
 
-		public static (Tunnel Tunnel, TunnelCreationError ErrorCode) CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey)
+		public static (Tunnel Tunnel, TunnelCreationError ErrorCode) CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, bool leaveOpen = false)
 		{
-			Tunnel output = new Tunnel(stream);
+			Tunnel output = new Tunnel(stream, leaveOpen);
 			try
 			{
 				using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
@@ -93,16 +89,22 @@ namespace Gerk.Crypto.EncyrptedTransfer
 						remotePublicKey.ImportCspBlob(reader.ReadBinaryData());
 						output.remotePublicKey = remotePublicKey.ExportParameters(false);
 						if (!remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.remotePublicKey.Modulus)))
-							return CleanupAndReturn(output, TunnelCreationError.RemoteDoesNotHaveValidPublicKey);
+						{
+							output.Dispose();
+							return (null, TunnelCreationError.RemoteDoesNotHaveValidPublicKey);
+						}
 
 						// read challenge signature
 						using (var hash = SHA256.Create())
 							if (!remotePublicKey.VerifyData(challengeMessage, hash, reader.ReadBinaryData()))
-								return CleanupAndReturn(output, TunnelCreationError.RemoteFailedToVierfyItself);
+							{
+								output.Dispose();
+								return (null, TunnelCreationError.RemoteFailedToVierfyItself);
+							}
 					}
 				}
 
-				output.initCryptoStreams();
+				output.InitCryptoStreams();
 				return (output, TunnelCreationError.NoError);
 			}
 			catch
@@ -112,9 +114,9 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			}
 		}
 
-		public static (Tunnel Tunnel, TunnelCreationError ErrorCode) CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey)
+		public static (Tunnel Tunnel, TunnelCreationError ErrorCode) CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, bool leaveOpen = false)
 		{
-			Tunnel output = new Tunnel(stream);
+			Tunnel output = new Tunnel(stream, leaveOpen);
 			try
 			{
 				using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
@@ -128,7 +130,10 @@ namespace Gerk.Crypto.EncyrptedTransfer
 						remotePublicKey.ImportCspBlob(reader.ReadBinaryData());
 						output.remotePublicKey = remotePublicKey.ExportParameters(false);
 						if (!remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.remotePublicKey.Modulus)))
-							return CleanupAndReturn(output, TunnelCreationError.RemoteDoesNotHaveValidPublicKey);
+						{
+							output.Dispose();
+							return (null, TunnelCreationError.RemoteDoesNotHaveValidPublicKey);
+						}
 
 						// write encrypted AES key
 						output.sharedKey = Aes.Create();
@@ -148,7 +153,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 						writer.WriteBinaryData(localPrivateKey.SignData(challengeMessage, hash));
 				}
 
-				output.initCryptoStreams();
+				output.InitCryptoStreams();
 				return (output, TunnelCreationError.NoError);
 			}
 			catch
@@ -168,7 +173,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 		public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
 
-		public override void Flush() => throw new NotSupportedException();
+		public override void Flush() => underlyingStream.Flush();
 
 		public virtual void FlushWriter()
 		{
@@ -197,6 +202,16 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		{
 			bytesWritten += (ulong)count;
 			writeStream.Write(buffer, offset, count);
+		}
+
+		public override async ValueTask DisposeAsync()
+		{
+			var a = writeStream.DisposeAsync();
+			var b = readStream.DisposeAsync();
+			if (leaveOpen)
+				await underlyingStream.DisposeAsync();
+			await a;
+			await b;
 		}
 	}
 }
