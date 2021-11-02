@@ -174,14 +174,12 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		{
 			int bytesToWrite = (int)(writeBlockSize - bytesWritten % writeBlockSize);
 			Write(new byte[bytesToWrite], 0, bytesToWrite);
-			bytesWritten = 0;
 		}
 
 		public virtual void FlushReader()
 		{
 			int bytesToRead = (int)(readBlockSize - bytesRead % readBlockSize);
 			Write(new byte[bytesToRead], 0, bytesToRead);
-			bytesRead = 0;
 		}
 
 		public override int Read(byte[] buffer, int offset, int count)
