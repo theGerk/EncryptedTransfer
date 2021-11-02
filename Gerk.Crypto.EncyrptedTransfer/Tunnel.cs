@@ -208,10 +208,18 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		{
 			var a = writeStream.DisposeAsync();
 			var b = readStream.DisposeAsync();
-			if (leaveOpen)
+			if (!leaveOpen)
 				await underlyingStream.DisposeAsync();
 			await a;
 			await b;
+		}
+
+		public override void Close()
+		{
+			writeStream.Close();
+			readStream.Close();
+			if (!leaveOpen)
+				underlyingStream.Close();
 		}
 	}
 }
