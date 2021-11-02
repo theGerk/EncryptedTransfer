@@ -54,8 +54,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		{
 			var dec = sharedKey.CreateDecryptor();
 			var enc = sharedKey.CreateEncryptor();
-			readBlockSize = (uint)dec.InputBlockSize;
-			writeBlockSize = (uint)enc.OutputBlockSize;
+			readBlockSize = (uint)dec.OutputBlockSize;
+			writeBlockSize = (uint)enc.InputBlockSize;
 			readStream = new CryptoStream(underlyingStream, dec, CryptoStreamMode.Read);
 			writeStream = new CryptoStream(underlyingStream, enc, CryptoStreamMode.Write);
 		}
@@ -175,13 +175,13 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 		public override void Flush() => underlyingStream.Flush();
 
-		public virtual void FlushWriter()
+		public virtual void WriteZerosToEndOfBlock()
 		{
 			int bytesToWrite = (int)(writeBlockSize - bytesWritten % writeBlockSize);
 			Write(new byte[bytesToWrite], 0, bytesToWrite);
 		}
 
-		public virtual void FlushReader()
+		public virtual void ReadZerosToEndOfBlock()
 		{
 			int bytesToRead = (int)(readBlockSize - bytesRead % readBlockSize);
 			Write(new byte[bytesToRead], 0, bytesToRead);
@@ -204,6 +204,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			writeStream.Write(buffer, offset, count);
 		}
 
+#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
 		public override async ValueTask DisposeAsync()
 		{
 			var a = writeStream.DisposeAsync();
@@ -213,6 +214,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			await a;
 			await b;
 		}
+#endif
 
 		public override void Close()
 		{
