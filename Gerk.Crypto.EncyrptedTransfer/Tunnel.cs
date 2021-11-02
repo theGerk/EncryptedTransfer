@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
@@ -11,6 +12,14 @@ using Gerk.BinaryExtension;
 
 namespace Gerk.Crypto.EncyrptedTransfer
 {
+	public enum TunnelCreationError
+	{
+		NoError = 0,
+		RemoteDoesNotHaveValidPublicKey,
+		RemoteFailedToVierfyItself,
+	}
+
+
 	public class Tunnel : Stream
 	{
 		/// <summary>
@@ -18,9 +27,17 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// </summary>
 		private const int CHALLANGE_SIZE = 256;
 		private const bool USE_OAEP_PADDING = true;
+		private const int AES_KEY_LENGTH = 256;
 
+		private CryptoStream readStream;
+		private CryptoStream writeStream;
 		private Aes sharedKey = null;
-		private Stream stream;
+		private Stream underlyingStream;
+		private ulong bytesRead = 0;
+		private uint readBlockSize;
+		private ulong bytesWritten = 0;
+		private uint writeBlockSize;
+
 		/// <summary>
 		/// The public key for the other end of the connection. Can be used as an identity.
 		/// </summary>
@@ -28,10 +45,26 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 		private Tunnel(Stream stream)
 		{
-			this.stream = stream;
+			this.underlyingStream = stream;
 		}
 
-		public static Tunnel CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey)
+		private static (A, B) CleanupAndReturn<A, B>(A tunnelToDispose, B creationError) where A : IDisposable
+		{
+			tunnelToDispose.Dispose();
+			return (default, creationError);
+		}
+
+		private void initCryptoStreams()
+		{
+			var dec = sharedKey.CreateDecryptor();
+			var enc = sharedKey.CreateEncryptor();
+			readBlockSize = (uint)dec.InputBlockSize;
+			writeBlockSize = (uint)enc.OutputBlockSize;
+			readStream = new CryptoStream(underlyingStream, dec, CryptoStreamMode.Read);
+			writeStream = new CryptoStream(underlyingStream, enc, CryptoStreamMode.Write);
+		}
+
+		public static (Tunnel Tunnel, TunnelCreationError ErrorCode) CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey)
 		{
 			Tunnel output = new Tunnel(stream);
 			try
@@ -59,20 +92,18 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					{
 						remotePublicKey.ImportCspBlob(reader.ReadBinaryData());
 						output.remotePublicKey = remotePublicKey.ExportParameters(false);
-						if (!remotePublicKeys.Any(x => x.Modulus == output.remotePublicKey.Modulus))
-						{
-							output.Dispose();
-							return null;
-						}
+						if (!remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.remotePublicKey.Modulus)))
+							return CleanupAndReturn(output, TunnelCreationError.RemoteDoesNotHaveValidPublicKey);
 
 						// read challenge signature
-						output.sharedKey = Aes.Create();
 						using (var hash = SHA256.Create())
 							if (!remotePublicKey.VerifyData(challengeMessage, hash, reader.ReadBinaryData()))
-								throw new CryptographicException("Remote target was not able to verify themselves correctly.");
+								return CleanupAndReturn(output, TunnelCreationError.RemoteFailedToVierfyItself);
 					}
 				}
-				return output;
+
+				output.initCryptoStreams();
+				return (output, TunnelCreationError.NoError);
 			}
 			catch
 			{
@@ -81,7 +112,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			}
 		}
 
-		public static Tunnel CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey)
+		public static (Tunnel Tunnel, TunnelCreationError ErrorCode) CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey)
 		{
 			Tunnel output = new Tunnel(stream);
 			try
@@ -96,14 +127,12 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					{
 						remotePublicKey.ImportCspBlob(reader.ReadBinaryData());
 						output.remotePublicKey = remotePublicKey.ExportParameters(false);
-						if (!remotePublicKeys.Any(x => x.Modulus == output.remotePublicKey.Modulus))
-						{
-							output.Dispose();
-							return null;
-						}
+						if (!remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.remotePublicKey.Modulus)))
+							return CleanupAndReturn(output, TunnelCreationError.RemoteDoesNotHaveValidPublicKey);
 
 						// write encrypted AES key
 						output.sharedKey = Aes.Create();
+						output.sharedKey.KeySize = AES_KEY_LENGTH;
 						writer.WriteBinaryData(remotePublicKey.Encrypt(output.sharedKey.Key, USE_OAEP_PADDING));
 					}
 
@@ -118,7 +147,9 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					using (var hash = SHA256.Create())
 						writer.WriteBinaryData(localPrivateKey.SignData(challengeMessage, hash));
 				}
-				return output;
+
+				output.initCryptoStreams();
+				return (output, TunnelCreationError.NoError);
 			}
 			catch
 			{
@@ -127,39 +158,47 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			}
 		}
 
-		public override bool CanRead => throw new System.NotImplementedException();
+		public override bool CanRead => true;
 
-		public override bool CanSeek => throw new System.NotImplementedException();
+		public override bool CanSeek => false;
 
-		public override bool CanWrite => throw new System.NotImplementedException();
+		public override bool CanWrite => true;
 
-		public override long Length => throw new System.NotImplementedException();
+		public override long Length => throw new NotSupportedException();
 
-		public override long Position { get => throw new System.NotImplementedException(); set => throw new System.NotImplementedException(); }
+		public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
 
-		public override void Flush()
+		public override void Flush() => throw new NotSupportedException();
+
+		public virtual void FlushWriter()
 		{
-			throw new System.NotImplementedException();
+			int bytesToWrite = (int)(writeBlockSize - bytesWritten % writeBlockSize);
+			Write(new byte[bytesToWrite], 0, bytesToWrite);
+			bytesWritten = 0;
+		}
+
+		public virtual void FlushReader()
+		{
+			int bytesToRead = (int)(readBlockSize - bytesRead % readBlockSize);
+			Write(new byte[bytesToRead], 0, bytesToRead);
+			bytesRead = 0;
 		}
 
 		public override int Read(byte[] buffer, int offset, int count)
 		{
-			throw new System.NotImplementedException();
+			var read = readStream.Read(buffer, offset, count);
+			bytesRead += (ulong)read;
+			return read;
 		}
 
-		public override long Seek(long offset, SeekOrigin origin)
-		{
-			throw new System.NotImplementedException();
-		}
+		public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
 
-		public override void SetLength(long value)
-		{
-			throw new System.NotImplementedException();
-		}
+		public override void SetLength(long value) => throw new NotSupportedException();
 
 		public override void Write(byte[] buffer, int offset, int count)
 		{
-			throw new System.NotImplementedException();
+			bytesWritten += (ulong)count;
+			writeStream.Write(buffer, offset, count);
 		}
 	}
 }
