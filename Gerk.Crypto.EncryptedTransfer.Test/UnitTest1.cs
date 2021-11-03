@@ -16,33 +16,36 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 {
 	public class UnitTest1
 	{
-		public byte[] reciver(Stream stream, RSAParameters local, RSAParameters remote)
+		public string reciver(Stream stream, RSAParameters local, RSAParameters remote, string send)
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportParameters(local);
 			using var tunnel = Tunnel.CreateResponder(stream, new RSAParameters[] { remote }, rsa, out var err);
 			if (err != TunnelCreationError.NoError)
 				throw new Exception(err.ToString());
-			var buf = new byte[tunnel.BlockSize];
-			tunnel.Read(buf, 0, buf.Length);
-			return buf;
+			using var reader = new StreamReader(tunnel);
+			using var writer = new StreamWriter(tunnel);
+			writer.WriteLine(send);
+			writer.Flush();
+			tunnel.FlushWriter();
+			var line = reader.ReadLine();
+			return line;
 		}
 
-		public void sender(Stream stream, RSAParameters local, RSAParameters remote)
+		public string sender(Stream stream, RSAParameters local, RSAParameters remote, string send)
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportParameters(local);
-			try
-			{
-				using var tunnel = Tunnel.CreateInitiator(stream, new RSAParameters[] { remote }, rsa, out var err);
-				if (err != TunnelCreationError.NoError)
-					throw new Exception(err.ToString());
-				tunnel.Write(new byte[tunnel.BlockSize], 0, (int)tunnel.BlockSize);
-			}
-			catch
-			{
-				throw;
-			}
+			using var tunnel = Tunnel.CreateInitiator(stream, new RSAParameters[] { remote }, rsa, out var err);
+			if (err != TunnelCreationError.NoError)
+				throw new Exception(err.ToString());
+			using var reader = new StreamReader(tunnel);
+			using var writer = new StreamWriter(tunnel);
+			writer.WriteLine(send);
+			writer.Flush();
+			tunnel.FlushWriter();
+			var line = reader.ReadLine();
+			return line;
 		}
 
 		[Fact]
@@ -51,10 +54,13 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 			var (a, b) = FakeNetworkStream.Create();
 			using var c = new RSACryptoServiceProvider();
 			using var d = new RSACryptoServiceProvider();
-			var sendTask = Task.Run(() => sender(a, c.ExportParameters(true), d.ExportParameters(false)));
-			var reciveTask = Task.Run(() => reciver(b, d.ExportParameters(true), c.ExportParameters(false)));
+			const string msg = "Hello world!";
+			const string response = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
+			var sendTask = Task.Run(() => sender(a, c.ExportParameters(true), d.ExportParameters(false), msg));
+			var reciveTask = Task.Run(() => reciver(b, d.ExportParameters(true), c.ExportParameters(false), response));
 			await Task.WhenAll(sendTask, reciveTask);
-			Assert.True((await reciveTask).SequenceEqual(new byte[16]));
+			Assert.True(await sendTask == response);
+			Assert.True(await reciveTask == msg);
 		}
 	}
 

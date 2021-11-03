@@ -204,16 +204,18 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 		public override void Flush() => underlyingStream.Flush();
 
-		public virtual void WriteZerosToEndOfBlock()
+		public virtual void FlushWriter()
 		{
 			int bytesToWrite = (int)(writeBlockSize - bytesWritten % writeBlockSize);
-			Write(new byte[bytesToWrite], 0, bytesToWrite);
+			if (bytesToWrite != writeBlockSize)
+				Write(new byte[bytesToWrite], 0, bytesToWrite);
 		}
 
-		public virtual void ReadZerosToEndOfBlock()
+		public virtual void FlushReader()
 		{
 			int bytesToRead = (int)(readBlockSize - bytesRead % readBlockSize);
-			Write(new byte[bytesToRead], 0, bytesToRead);
+			if (bytesToRead != readBlockSize)
+				Write(new byte[bytesToRead], 0, bytesToRead);
 		}
 
 		public override int Read(byte[] buffer, int offset, int count)
