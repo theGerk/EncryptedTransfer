@@ -61,6 +61,28 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			writeStream = new CryptoStream(underlyingStream, enc, CryptoStreamMode.Write);
 		}
 
+		private static void ReadAesKey(out Aes aes, BinaryReader bw, RSACryptoServiceProvider rsa)
+		{
+			aes = Aes.Create();
+			using (var memStream = new MemoryStream(rsa.Decrypt(bw.ReadBinaryData(), USE_OAEP_PADDING)))
+			using (var memReader = new BinaryReader(memStream))
+			{
+				aes.Key = memReader.ReadBinaryData();
+				aes.IV = memReader.ReadBinaryData();
+			}
+		}
+
+		private static void WriteAesKey(Aes aes, BinaryWriter bw, RSACryptoServiceProvider rsa)
+		{
+			using (var memStream = new MemoryStream())
+			using (var memWriter = new BinaryWriter(memStream))
+			{
+				memWriter.WriteBinaryData(aes.Key);
+				memWriter.WriteBinaryData(aes.IV);
+				bw.WriteBinaryData(rsa.Encrypt(memStream.ToArray(), USE_OAEP_PADDING));
+			}
+		}
+
 		public static Tunnel CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
 		{
 			Tunnel output = new Tunnel(stream, leaveOpen);
@@ -143,7 +165,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 						// write encrypted AES key
 						output.sharedKey = Aes.Create();
 						output.sharedKey.KeySize = AES_KEY_LENGTH;
-						writer.WriteBinaryData(remotePublicKey.Encrypt(output.sharedKey.Key, USE_OAEP_PADDING));
+						output.sharedKey.GenerateIV();
+						WriteAesKey(output.sharedKey, writer, remotePublicKey);
 					}
 
 					// read challenge
@@ -213,6 +236,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 #if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
 		public override async ValueTask DisposeAsync()
 		{
+			sharedKey.Dispose();
 			var a = writeStream.DisposeAsync();
 			var b = readStream.DisposeAsync();
 			if (!leaveOpen)
@@ -224,6 +248,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 		public override void Close()
 		{
+			sharedKey.Dispose();
 			writeStream?.Close();
 			readStream?.Close();
 			if (!leaveOpen)
