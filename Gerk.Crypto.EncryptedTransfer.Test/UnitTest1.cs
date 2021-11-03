@@ -1,3 +1,4 @@
+using Gerk.AsyncThen;
 using Gerk.Crypto.EncyrptedTransfer;
 using System;
 using System.Collections;
@@ -5,6 +6,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
+using System.Text;
+using System.Text.Unicode;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
@@ -25,7 +28,7 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 			return buf;
 		}
 
-		public void send(Stream stream, RSAParameters local, RSAParameters remote, byte[] msg)
+		public void sender(Stream stream, RSAParameters local, RSAParameters remote)
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportParameters(local);
@@ -36,9 +39,15 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 		}
 
 		[Fact]
-		public void Test1()
+		public async Task Test1()
 		{
-
+			var (a, b) = FakeNetworkStream.Create();
+			using var c = new RSACryptoServiceProvider();
+			using var d = new RSACryptoServiceProvider();
+			var sendTask = Task.Run(() => sender(a, c.ExportParameters(true), d.ExportParameters(false)));
+			var reciveTask = Task.Run(() => reciver(b, d.ExportParameters(true), c.ExportParameters(false)));
+			await Task.WhenAll(sendTask, reciveTask);
+			Assert.True((await reciveTask).SequenceEqual(new byte[16]));
 		}
 	}
 
@@ -49,43 +58,70 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 			Queue<ReadOnlyMemory<byte>> q = new();
 			ReadOnlyMemory<byte> current = new();
 			int i = 0;
-			TaskCompletionSource readTask = null;
+			TaskCompletionSource readTaskSource = null;
 			readonly object lockobj = new();
-			public void write(ReadOnlyMemory<byte> bytes)
+			public void Write(ReadOnlyMemory<byte> bytes)
 			{
 				if (!bytes.IsEmpty)
 				{
 					lock (lockobj)
 					{
 						q.Enqueue(bytes);
-						if (readTask != null)
-							readTask.TrySetResult();
+						readTaskSource?.TrySetResult();
 					}
 				}
 			}
 
-			public async ValueTask<int> read(Memory<byte> buffer)
+			public async ValueTask<int> Read(Memory<byte> buffer)
 			{
 				if (i >= current.Length)
 				{
+
+					bool queueHadAnything;
 					lock (lockobj)
 					{
-						bool queueHadAnything = q.TryDequeue(out current);
+						queueHadAnything = q.TryDequeue(out current);
 						if (queueHadAnything)
 						{
 							i = 0;
 						}
 						else
 						{
-							// need to use taskcompletionsource here
+							//wait for write
+							readTaskSource = new();
 						}
+					}
+					if (!queueHadAnything)
+					{
+						await readTaskSource.Task;
+						lock (lockobj)
+							current = q.Dequeue();
+						i = 0;
 					}
 				}
 
-				
+				//now we're good
+				var len = Math.Min(buffer.Length, current.Length - i);
+				current.Slice(i, len).CopyTo(buffer);
+				i += len;
+				return len;
 			}
 		}
 
+		public static (FakeNetworkStream, FakeNetworkStream) Create()
+		{
+			var a = new ByteStream();
+			var b = new ByteStream();
+			return (new(a, b), new(b, a));
+		}
+
+		private FakeNetworkStream(ByteStream read, ByteStream write)
+		{
+			this.read = read;
+			this.write = write;
+		}
+		ByteStream read;
+		ByteStream write;
 
 		public override bool CanRead => true;
 
@@ -101,33 +137,45 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 
 		public override int Read(byte[] buffer, int offset, int count)
 		{
-			using var sync = new SynchronizationContextSwap.SynchronizationContextSwap<bool>();
-			return ReadAsync(buffer, offset, count, CancellationToken.None).Result;
+			using var sync = new SynchronizationContextSwap.SynchronizationContextSwap();
+			var t = ReadAsync(new(buffer, offset, count));
+			if (t.IsCompleted)
+				return t.Result;
+			else
+				return t.AsTask().Result;
 		}
 
-		public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken = default)
+		public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
 		{
-			return base.ReadAsync(buffer, offset, count, cancellationToken);
+			return ReadAsync(new(buffer, offset, count), cancellationToken).AsTask();
 		}
 
 		public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
 		{
-			return base.ReadAsync(buffer, cancellationToken);
+			return read.Read(buffer);
 		}
 
 		public override long Seek(long offset, SeekOrigin origin)
 		{
-			throw new NotImplementedException();
+			throw new NotSupportedException();
 		}
 
 		public override void SetLength(long value)
 		{
-			throw new NotImplementedException();
+			throw new NotSupportedException();
 		}
 
 		public override void Write(byte[] buffer, int offset, int count)
 		{
-			throw new NotImplementedException();
+			var t = WriteAsync(new(buffer, offset, count));
+			if (!t.IsCompleted)
+				t.AsTask().Wait();
+		}
+
+		public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+		{
+			write.Write(buffer);
+			return ValueTask.CompletedTask;
 		}
 	}
 }

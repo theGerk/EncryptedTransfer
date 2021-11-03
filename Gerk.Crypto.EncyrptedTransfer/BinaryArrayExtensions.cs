@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 
 namespace Gerk.Crypto.EncyrptedTransfer
 {
-	internal static class ByteArrayExtensions
+	public static class ByteArrayExtensions
     {
         [DllImport("msvcrt.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern int memcmp(byte[] b1, byte[] b2, UIntPtr count);

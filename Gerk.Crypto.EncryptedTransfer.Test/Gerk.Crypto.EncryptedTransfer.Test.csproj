@@ -7,6 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Gerk.AsyncThen" Version="2.1.0" />
     <PackageReference Include="Gerk.SynchronizationContextSwap" Version="1.1.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.0.0" />
     <PackageReference Include="xunit" Version="2.4.1" />

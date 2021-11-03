@@ -224,10 +224,10 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 		public override void Close()
 		{
-			writeStream.Close();
-			readStream.Close();
+			writeStream?.Close();
+			readStream?.Close();
 			if (!leaveOpen)
-				underlyingStream.Close();
+				underlyingStream?.Close();
 		}
 	}
 }
