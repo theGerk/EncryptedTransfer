@@ -61,15 +61,16 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			writeStream = new CryptoStream(underlyingStream, enc, CryptoStreamMode.Write);
 		}
 
-		private static void ReadAesKey(out Aes aes, BinaryReader bw, RSACryptoServiceProvider rsa)
+		private static Aes ReadAesKey(BinaryReader bw, RSACryptoServiceProvider rsa)
 		{
-			aes = Aes.Create();
+			var aes = Aes.Create();
 			using (var memStream = new MemoryStream(rsa.Decrypt(bw.ReadBinaryData(), USE_OAEP_PADDING)))
 			using (var memReader = new BinaryReader(memStream))
 			{
 				aes.Key = memReader.ReadBinaryData();
 				aes.IV = memReader.ReadBinaryData();
 			}
+			return aes;
 		}
 
 		private static void WriteAesKey(Aes aes, BinaryWriter bw, RSACryptoServiceProvider rsa)
@@ -103,8 +104,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					writer.Write(challengeMessage);
 
 					// read encrypted AES key
-					output.sharedKey = Aes.Create();
-					output.sharedKey.Key = localPrivateKey.Decrypt(reader.ReadBinaryData(), USE_OAEP_PADDING);
+					output.sharedKey = ReadAesKey(reader, localPrivateKey);
 
 					// read remote public key
 					using (var remotePublicKey = new RSACryptoServiceProvider())

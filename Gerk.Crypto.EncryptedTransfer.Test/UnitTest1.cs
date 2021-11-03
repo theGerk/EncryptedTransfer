@@ -32,10 +32,17 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportParameters(local);
-			using var tunnel = Tunnel.CreateInitiator(stream, new RSAParameters[] { remote }, rsa, out var err);
-			if (err != TunnelCreationError.NoError)
-				throw new Exception(err.ToString());
-			tunnel.Write(new byte[tunnel.BlockSize], 0, (int)tunnel.BlockSize);
+			try
+			{
+				using var tunnel = Tunnel.CreateInitiator(stream, new RSAParameters[] { remote }, rsa, out var err);
+				if (err != TunnelCreationError.NoError)
+					throw new Exception(err.ToString());
+				tunnel.Write(new byte[tunnel.BlockSize], 0, (int)tunnel.BlockSize);
+			}
+			catch
+			{
+				throw;
+			}
 		}
 
 		[Fact]
