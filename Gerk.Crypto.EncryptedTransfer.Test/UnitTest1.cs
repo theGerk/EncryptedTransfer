@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Unicode;
@@ -16,6 +17,8 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 {
 	public class UnitTest1
 	{
+		public static int startbreaking = 0;
+
 		public string reciver(Stream stream, RSAParameters local, RSAParameters remote, string send)
 		{
 			using var rsa = new RSACryptoServiceProvider();
@@ -23,12 +26,12 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 			using var tunnel = Tunnel.CreateResponder(stream, new RSAParameters[] { remote }, rsa, out var err);
 			if (err != TunnelCreationError.NoError)
 				throw new Exception(err.ToString());
-			using var reader = new StreamReader(tunnel);
-			using var writer = new StreamWriter(tunnel);
-			writer.WriteLine(send);
-			writer.Flush();
+			startbreaking++;
+			using var reader = new BinaryReader(tunnel);
+			using var writer = new BinaryWriter(tunnel);
+			writer.Write(send);
 			tunnel.FlushWriter();
-			var line = reader.ReadLine();
+			var line = reader.ReadString();
 			return line;
 		}
 
@@ -39,12 +42,12 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 			using var tunnel = Tunnel.CreateInitiator(stream, new RSAParameters[] { remote }, rsa, out var err);
 			if (err != TunnelCreationError.NoError)
 				throw new Exception(err.ToString());
-			using var reader = new StreamReader(tunnel);
-			using var writer = new StreamWriter(tunnel);
-			writer.WriteLine(send);
-			writer.Flush();
+			startbreaking++;
+			using var reader = new BinaryReader(tunnel);
+			using var writer = new BinaryWriter(tunnel);
+			writer.Write(send);
 			tunnel.FlushWriter();
-			var line = reader.ReadLine();
+			var line = reader.ReadString();
 			return line;
 		}
 
