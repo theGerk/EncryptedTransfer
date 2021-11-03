@@ -37,6 +37,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		private uint readBlockSize;
 		private ulong bytesWritten = 0;
 		private uint writeBlockSize;
+		public uint BlockSize => writeBlockSize;
 
 		private bool leaveOpen;
 
@@ -60,7 +61,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			writeStream = new CryptoStream(underlyingStream, enc, CryptoStreamMode.Write);
 		}
 
-		public static (Tunnel Tunnel, TunnelCreationError ErrorCode) CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, bool leaveOpen = false)
+		public static Tunnel CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
 		{
 			Tunnel output = new Tunnel(stream, leaveOpen);
 			try
@@ -91,7 +92,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 						if (!remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.remotePublicKey.Modulus)))
 						{
 							output.Dispose();
-							return (null, TunnelCreationError.RemoteDoesNotHaveValidPublicKey);
+							error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
+							return null;
 						}
 
 						// read challenge signature
@@ -99,13 +101,15 @@ namespace Gerk.Crypto.EncyrptedTransfer
 							if (!remotePublicKey.VerifyData(challengeMessage, hash, reader.ReadBinaryData()))
 							{
 								output.Dispose();
-								return (null, TunnelCreationError.RemoteFailedToVierfyItself);
+								error = TunnelCreationError.RemoteFailedToVierfyItself;
+								return null;
 							}
 					}
 				}
 
 				output.InitCryptoStreams();
-				return (output, TunnelCreationError.NoError);
+				error = TunnelCreationError.NoError;
+				return output;
 			}
 			catch
 			{
@@ -114,7 +118,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			}
 		}
 
-		public static (Tunnel Tunnel, TunnelCreationError ErrorCode) CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, bool leaveOpen = false)
+		public static Tunnel CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
 		{
 			Tunnel output = new Tunnel(stream, leaveOpen);
 			try
@@ -132,7 +136,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 						if (!remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.remotePublicKey.Modulus)))
 						{
 							output.Dispose();
-							return (null, TunnelCreationError.RemoteDoesNotHaveValidPublicKey);
+							error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
+							return null;
 						}
 
 						// write encrypted AES key
@@ -154,7 +159,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 				}
 
 				output.InitCryptoStreams();
-				return (output, TunnelCreationError.NoError);
+				error = TunnelCreationError.NoError;
+				return output;
 			}
 			catch
 			{
