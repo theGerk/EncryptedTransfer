@@ -98,9 +98,17 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			}
 		}
 
-		public static Tunnel CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
+		public static Tunnel CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			, bool leaveOpen = false
+#endif
+		)
 		{
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			Tunnel output = new Tunnel(stream, leaveOpen);
+#else
+			Tunnel output = new Tunnel(stream);
+#endif
 			try
 			{
 				using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
@@ -154,9 +162,17 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			}
 		}
 
-		public static Tunnel CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
+		public static Tunnel CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			, bool leaveOpen = false
+#endif
+			)
 		{
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			Tunnel output = new Tunnel(stream, leaveOpen);
+#else
+			Tunnel output = new Tunnel(stream);
+#endif
 			try
 			{
 				using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
