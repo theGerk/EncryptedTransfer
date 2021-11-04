@@ -39,26 +39,40 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		private uint writeBlockSize;
 		public uint BlockSize => writeBlockSize;
 
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 		private bool leaveOpen;
-
+#endif
 		/// <summary>
 		/// The public key for the other end of the connection. Can be used as an identity.
 		/// </summary>
 		public RSAParameters remotePublicKey { private set; get; }
 
-		private Tunnel(Stream stream, bool leaveOpen)
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+		private Tunnel(Stream stream, bool leaveOpen = false)
 		{
 			this.underlyingStream = stream;
 			this.leaveOpen = leaveOpen;
 		}
+#else
+		private Tunnel(Stream stream)
+		{
+			this.underlyingStream = stream;
+		}
+#endif
+
 		private void InitCryptoStreams()
 		{
 			var dec = sharedKey.CreateDecryptor();
 			var enc = sharedKey.CreateEncryptor();
 			readBlockSize = (uint)dec.OutputBlockSize;
 			writeBlockSize = (uint)enc.InputBlockSize;
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			readStream = new CryptoStream(underlyingStream, dec, CryptoStreamMode.Read, leaveOpen);
+			writeStream = new CryptoStream(underlyingStream, enc, CryptoStreamMode.Write, leaveOpen);
+#else
 			readStream = new CryptoStream(underlyingStream, dec, CryptoStreamMode.Read);
 			writeStream = new CryptoStream(underlyingStream, enc, CryptoStreamMode.Write);
+#endif
 		}
 
 		private static Aes ReadAesKey(BinaryReader bw, RSACryptoServiceProvider rsa)
@@ -241,8 +255,10 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			sharedKey.Dispose();
 			var a = writeStream.DisposeAsync();
 			var b = readStream.DisposeAsync();
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			if (!leaveOpen)
 				await underlyingStream.DisposeAsync();
+#endif
 			await a;
 			await b;
 		}
@@ -253,7 +269,9 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			sharedKey.Dispose();
 			writeStream?.Close();
 			readStream?.Close();
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			if (!leaveOpen)
+#endif
 				underlyingStream?.Close();
 		}
 	}
