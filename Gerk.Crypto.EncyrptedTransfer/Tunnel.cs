@@ -34,10 +34,9 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		private Aes sharedKey = null;
 		private Stream underlyingStream;
 		private ulong bytesRead = 0;
-		private uint readBlockSize;
+		private uint blockSize;
 		private ulong bytesWritten = 0;
-		private uint writeBlockSize;
-		public uint BlockSize => writeBlockSize;
+		public uint BlockSize => blockSize;
 
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 		private bool leaveOpen;
@@ -64,8 +63,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		{
 			var dec = sharedKey.CreateDecryptor();
 			var enc = sharedKey.CreateEncryptor();
-			readBlockSize = (uint)dec.OutputBlockSize;
-			writeBlockSize = (uint)enc.InputBlockSize;
+			blockSize = (uint)enc.InputBlockSize;
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			readStream = new CryptoStream(underlyingStream, dec, CryptoStreamMode.Read, leaveOpen);
 			writeStream = new CryptoStream(underlyingStream, enc, CryptoStreamMode.Write, leaveOpen);
@@ -78,6 +76,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		private static Aes ReadAesKey(BinaryReader bw, RSACryptoServiceProvider rsa)
 		{
 			var aes = Aes.Create();
+			aes.Padding = PaddingMode.None;
+			aes.Mode = CipherMode.ECB;
 			using (var memStream = new MemoryStream(rsa.Decrypt(bw.ReadBinaryData(), USE_OAEP_PADDING)))
 			using (var memReader = new BinaryReader(memStream))
 			{
@@ -194,6 +194,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 						// write encrypted AES key
 						output.sharedKey = Aes.Create();
+						output.sharedKey.Mode = CipherMode.ECB;
+						output.sharedKey.Padding = PaddingMode.None;
 						output.sharedKey.KeySize = AES_KEY_LENGTH;
 						output.sharedKey.GenerateIV();
 						WriteAesKey(output.sharedKey, writer, remotePublicKey);
@@ -236,18 +238,28 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 		public virtual void FlushWriter()
 		{
-			int bytesToWrite = (int)(writeBlockSize - bytesWritten % writeBlockSize);
-			if (bytesToWrite != writeBlockSize)
+			int bytesToWrite = (int)(blockSize - (bytesWritten % blockSize));
+			//Write(new byte[32], 0, 32);
+			if (bytesToWrite != blockSize)
 				Write(new byte[bytesToWrite], 0, bytesToWrite);
+			//writeStream.FlushFinalBlock();
 		}
 
 		public virtual void FlushReader()
 		{
-			int bytesToRead = (int)(readBlockSize - bytesRead % readBlockSize);
-			if (bytesToRead != readBlockSize)
+			int bytesToRead = (int)(blockSize - bytesRead % blockSize);
+			if (bytesToRead != blockSize)
 				Write(new byte[bytesToRead], 0, bytesToRead);
 		}
-
+#if NET5_0
+		public string GetKey()
+		{
+			byte[] me = new byte[16];
+			var hash = SHA256.HashData(sharedKey.Key);
+			Buffer.BlockCopy(hash, 0, me, 0, 16);
+			return new Guid(me).ToString();
+		}
+#endif
 		public override int Read(byte[] buffer, int offset, int count)
 		{
 			var read = readStream.Read(buffer, offset, count);
