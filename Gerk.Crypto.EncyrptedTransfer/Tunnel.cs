@@ -12,31 +12,52 @@ using Gerk.BinaryExtension;
 
 namespace Gerk.Crypto.EncyrptedTransfer
 {
+	/// <summary>
+	/// Error code for errors that happen during the tunnel creation
+	/// </summary>
+	/// <seealso cref="Tunnel.CreateInitiator(Stream, IEnumerable{RSAParameters}, RSACryptoServiceProvider, out TunnelCreationError, bool)"/>
+	/// <seealso cref="Tunnel.CreateResponder(Stream, IEnumerable{RSAParameters}, RSACryptoServiceProvider, out TunnelCreationError, bool)"/>
 	public enum TunnelCreationError
 	{
+		/// <summary>
+		/// All good, no errors.
+		/// </summary>
 		NoError = 0,
+		/// <summary>
+		/// The other side of the tunnel provided an invalid public key.
+		/// </summary>
 		RemoteDoesNotHaveValidPublicKey,
+		/// <summary>
+		/// The other side of the tunnel failed to prove their identiity.
+		/// </summary>
 		RemoteFailedToVierfyItself,
 	}
 
-
+	/// <summary>
+	/// A <see cref="Stream"/> for end to end encrypted and secure transfering of data. Data is only written to the underlying stream in blocks. You can complete a block that needs to be written by using <see cref="FlushWriter"/>. When reading, wherever you expect a block to be completed by a <see cref="FlushWriter"/> you should call <see cref="FlushReader"/> to jump to the end of the block. Wrapping this stream with a <see cref="StreamReader"/> or <see cref="StreamWriter"/> is not currently supported. Rather you are encouraged to use a <see cref="BinaryReader"/> and <see cref="BinaryWriter"/>.
+	/// </summary>
 	public class Tunnel : Stream
 	{
+		// All sizes below are listed in bytes.
 		/// <summary>
 		/// Size of the challenge message in bytes to initiate connection.
 		/// </summary>
-		private const int CHALLANGE_SIZE = 256;
+		private const uint CHALLANGE_SIZE = 16;
 		private const bool USE_OAEP_PADDING = true;
-		private const int AES_KEY_LENGTH = 256;
+		private const uint AES_KEY_LENGTH = 32; // 256 bit key
+		private const uint AES_IV_LENGTH = 16; // Part of AES definition
+		private const uint AES_BLOCK_SIZE = 16; // Part of AES definition
 
 		private CryptoStream readStream;
 		private CryptoStream writeStream;
-		private Aes sharedKey = null;
-		private Stream underlyingStream;
+		private Aes sharedKey;
+		private readonly Stream underlyingStream;
 		private ulong bytesRead = 0;
-		private uint blockSize;
 		private ulong bytesWritten = 0;
-		public uint BlockSize => blockSize;
+		/// <summary>
+		/// The size in bytes of each block. 
+		/// </summary>
+		public static uint BlockSize => AES_BLOCK_SIZE;
 
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 		private bool leaveOpen;
@@ -46,6 +67,11 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// </summary>
 		public RSAParameters remotePublicKey { private set; get; }
 
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <param name="stream"></param>
+		/// <param name="leaveOpen"></param>
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 		private Tunnel(Stream stream, bool leaveOpen = false)
 		{
@@ -63,7 +89,6 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		{
 			var dec = sharedKey.CreateDecryptor();
 			var enc = sharedKey.CreateEncryptor();
-			blockSize = (uint)enc.InputBlockSize;
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			readStream = new CryptoStream(underlyingStream, dec, CryptoStreamMode.Read, leaveOpen);
 			writeStream = new CryptoStream(underlyingStream, enc, CryptoStreamMode.Write, leaveOpen);
@@ -75,14 +100,18 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 		private static Aes ReadAesKey(BinaryReader bw, RSACryptoServiceProvider rsa)
 		{
-			var aes = Aes.Create();
-			aes.Padding = PaddingMode.None;
-			aes.Mode = CipherMode.ECB;
+			var aes = aeskey();
 			using (var memStream = new MemoryStream(rsa.Decrypt(bw.ReadBinaryData(), USE_OAEP_PADDING)))
-			using (var memReader = new BinaryReader(memStream))
+			using (var writer = new BinaryReader(memStream))
 			{
-				aes.Key = memReader.ReadBinaryData();
-				aes.IV = memReader.ReadBinaryData();
+				byte[] bytes;
+				bytes = new byte[AES_KEY_LENGTH];
+				memStream.Read(bytes, 0, (int)AES_KEY_LENGTH);
+				aes.Key = bytes;
+
+				bytes = new byte[AES_IV_LENGTH];
+				memStream.Read(bytes, 0, (int)AES_IV_LENGTH);
+				aes.IV = bytes;
 			}
 			return aes;
 		}
@@ -90,12 +119,19 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		private static void WriteAesKey(Aes aes, BinaryWriter bw, RSACryptoServiceProvider rsa)
 		{
 			using (var memStream = new MemoryStream())
-			using (var memWriter = new BinaryWriter(memStream))
 			{
-				memWriter.WriteBinaryData(aes.Key);
-				memWriter.WriteBinaryData(aes.IV);
+				memStream.Write(aes.Key, 0, (int)AES_KEY_LENGTH);
+				memStream.Write(aes.IV, 0, (int)AES_IV_LENGTH);
 				bw.WriteBinaryData(rsa.Encrypt(memStream.ToArray(), USE_OAEP_PADDING));
 			}
+		}
+
+		private static Aes aeskey()
+		{
+			var output = Aes.Create();
+			output.Mode = CipherMode.CBC;
+			output.Padding = PaddingMode.None;
+			return output;
 		}
 
 		public static Tunnel CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error
@@ -193,17 +229,15 @@ namespace Gerk.Crypto.EncyrptedTransfer
 						}
 
 						// write encrypted AES key
-						output.sharedKey = Aes.Create();
-						output.sharedKey.Mode = CipherMode.ECB;
-						output.sharedKey.Padding = PaddingMode.None;
-						output.sharedKey.KeySize = AES_KEY_LENGTH;
+						output.sharedKey = aeskey();
+						output.sharedKey.GenerateKey();
 						output.sharedKey.GenerateIV();
 						WriteAesKey(output.sharedKey, writer, remotePublicKey);
 					}
 
 					// read challenge
 					byte[] challengeMessage = new byte[CHALLANGE_SIZE];
-					reader.Read(challengeMessage, 0, CHALLANGE_SIZE);
+					reader.Read(challengeMessage, 0, (int)CHALLANGE_SIZE);
 
 					// write local public key
 					writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
@@ -238,17 +272,15 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 		public virtual void FlushWriter()
 		{
-			int bytesToWrite = (int)(blockSize - (bytesWritten % blockSize));
-			//Write(new byte[32], 0, 32);
-			if (bytesToWrite != blockSize)
+			int bytesToWrite = (int)(BlockSize - (bytesWritten % BlockSize));
+			if (bytesToWrite != BlockSize)
 				Write(new byte[bytesToWrite], 0, bytesToWrite);
-			//writeStream.FlushFinalBlock();
 		}
 
 		public virtual void FlushReader()
 		{
-			int bytesToRead = (int)(blockSize - bytesRead % blockSize);
-			if (bytesToRead != blockSize)
+			int bytesToRead = (int)(BlockSize - bytesRead % BlockSize);
+			if (bytesToRead != BlockSize)
 				Write(new byte[bytesToRead], 0, bytesToRead);
 		}
 #if NET5_0
