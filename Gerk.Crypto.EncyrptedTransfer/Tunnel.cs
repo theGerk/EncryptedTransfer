@@ -302,7 +302,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			writeStream.Write(buffer, offset, count);
 		}
 
-#if NETCOREAPP3_0_OR_GREATER || NETSTANDARD2_1_OR_GREATER
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_0_OR_GREATER
 		public override async ValueTask DisposeAsync()
 		{
 			sharedKey.Dispose();
