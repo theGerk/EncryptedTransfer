@@ -60,7 +60,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		public static uint BlockSize => AES_BLOCK_SIZE;
 
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-		private bool leaveOpen;
+		private readonly bool leaveOpen;
 #endif
 		/// <summary>
 		/// The public key for the other end of the connection. Can be used as an identity.
@@ -134,11 +134,11 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			return output;
 		}
 
-		public static Tunnel CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-			, bool leaveOpen = false
+		public static Tunnel CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
+#else
+		public static Tunnel CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error)
 #endif
-		)
 		{
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			Tunnel output = new Tunnel(stream, leaveOpen);
@@ -198,11 +198,12 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			}
 		}
 
-		public static Tunnel CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error
+
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-			, bool leaveOpen = false
+		public static Tunnel CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
+#else
+		public static Tunnel CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error)
 #endif
-			)
 		{
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			Tunnel output = new Tunnel(stream, leaveOpen);
@@ -283,15 +284,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			if (bytesToRead != BlockSize)
 				Write(new byte[bytesToRead], 0, bytesToRead);
 		}
-#if NET5_0
-		public string GetKey()
-		{
-			byte[] me = new byte[16];
-			var hash = SHA256.HashData(sharedKey.Key);
-			Buffer.BlockCopy(hash, 0, me, 0, 16);
-			return new Guid(me).ToString();
-		}
-#endif
+
 		public override int Read(byte[] buffer, int offset, int count)
 		{
 			var read = readStream.Read(buffer, offset, count);
@@ -317,8 +310,9 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			var b = readStream.DisposeAsync();
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			if (!leaveOpen)
-				await underlyingStream.DisposeAsync();
 #endif
+				await underlyingStream.DisposeAsync();
+
 			await a;
 			await b;
 		}
