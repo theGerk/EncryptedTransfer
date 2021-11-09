@@ -48,9 +48,9 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		private const uint AES_IV_LENGTH = 16; // Part of AES definition
 		private const uint AES_BLOCK_SIZE = 16; // Part of AES definition
 
+		// Crypto streams to read and write
 		private CryptoStream readStream;
 		private CryptoStream writeStream;
-		private Aes sharedKey;
 		private readonly Stream underlyingStream;
 		private ulong bytesRead = 0;
 		private ulong bytesWritten = 0;
@@ -85,7 +85,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		}
 #endif
 
-		private void InitCryptoStreams()
+		private void InitCryptoStreams(Aes sharedKey)
 		{
 			var dec = sharedKey.CreateDecryptor();
 			var enc = sharedKey.CreateEncryptor();
@@ -162,11 +162,10 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					writer.Write(challengeMessage);
 
 					// read encrypted AES key
-					output.sharedKey = ReadAesKey(reader, localPrivateKey);
-
-					// read remote public key
+					using (var sharedKey = ReadAesKey(reader, localPrivateKey))
 					using (var remotePublicKey = new RSACryptoServiceProvider())
 					{
+						// read remote public key
 						remotePublicKey.ImportCspBlob(reader.ReadBinaryData());
 						output.remotePublicKey = remotePublicKey.ExportParameters(false);
 						if (!remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.remotePublicKey.Modulus)))
@@ -184,10 +183,10 @@ namespace Gerk.Crypto.EncyrptedTransfer
 								error = TunnelCreationError.RemoteFailedToVierfyItself;
 								return null;
 							}
+
+						output.InitCryptoStreams(sharedKey);
 					}
 				}
-
-				output.InitCryptoStreams();
 				error = TunnelCreationError.NoError;
 				return output;
 			}
@@ -230,25 +229,28 @@ namespace Gerk.Crypto.EncyrptedTransfer
 						}
 
 						// write encrypted AES key
-						output.sharedKey = aeskey();
-						output.sharedKey.GenerateKey();
-						output.sharedKey.GenerateIV();
-						WriteAesKey(output.sharedKey, writer, remotePublicKey);
+						using (var sharedKey = aeskey())
+						{
+							sharedKey.GenerateKey();
+							sharedKey.GenerateIV();
+							WriteAesKey(sharedKey, writer, remotePublicKey);
+
+							// read challenge
+							byte[] challengeMessage = new byte[CHALLANGE_SIZE];
+							reader.Read(challengeMessage, 0, (int)CHALLANGE_SIZE);
+
+							// write local public key
+							writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
+
+							// write challenge signature
+							using (var hash = SHA256.Create())
+								writer.WriteBinaryData(localPrivateKey.SignData(challengeMessage, hash));
+
+							output.InitCryptoStreams(sharedKey);
+						}
 					}
-
-					// read challenge
-					byte[] challengeMessage = new byte[CHALLANGE_SIZE];
-					reader.Read(challengeMessage, 0, (int)CHALLANGE_SIZE);
-
-					// write local public key
-					writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
-
-					// write challenge signature
-					using (var hash = SHA256.Create())
-						writer.WriteBinaryData(localPrivateKey.SignData(challengeMessage, hash));
 				}
 
-				output.InitCryptoStreams();
 				error = TunnelCreationError.NoError;
 				return output;
 			}
