@@ -16,18 +16,16 @@ using Xunit;
 
 namespace Gerk.Crypto.EncryptedTransfer.Test
 {
-	public class UnitTest1
+	public static class UnitTest1
 	{
-		public static int startbreaking = 0;
 
-		public string reciver(Stream stream, RSAParameters local, RSAParameters remote, string send)
+		public static string reciver(Stream stream, RSAParameters local, RSAParameters remote, string send)
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportParameters(local);
 			using var tunnel = Tunnel.CreateResponder(stream, new RSAParameters[] { remote }, rsa, out var err);
 			if (err != TunnelCreationError.NoError)
 				throw new Exception(err.ToString());
-			startbreaking++;
 			using var reader = new BinaryReader(tunnel);
 			using var writer = new BinaryWriter(tunnel);
 
@@ -37,14 +35,13 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 			return line;
 		}
 
-		public string sender(Stream stream, RSAParameters local, RSAParameters remote, string send)
+		public static string sender(Stream stream, RSAParameters local, RSAParameters remote, string send)
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportParameters(local);
 			using var tunnel = Tunnel.CreateInitiator(stream, new RSAParameters[] { remote }, rsa, out var err);
 			if (err != TunnelCreationError.NoError)
 				throw new Exception(err.ToString());
-			startbreaking++;
 			using var reader = new BinaryReader(tunnel);
 			using var writer = new BinaryWriter(tunnel);
 			writer.Write(send);
@@ -54,7 +51,7 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 		}
 
 		[Fact]
-		public async Task Test1()
+		public static async Task Test1()
 		{
 			TcpListener server = new TcpListener(System.Net.IPAddress.Loopback, 0);
 			server.Start();
