@@ -55,7 +55,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// <summary>
 		/// The public key for the other end of the connection. Can be used as an identity.
 		/// </summary>
-		public RSAParameters remotePublicKey { private set; get; }
+		public RSAParameters RemotePublicKey { private set; get; }
 
 		/// <summary>
 		/// Constructor
@@ -146,7 +146,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// Initiates handshake to setup secure connection over <see cref="Stream"/>.
 		/// </summary>
 		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
-		/// <param name="remotePublicKeys">The public keys that are allowed. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="remotePublicKey"/> property.</param>
+		/// <param name="remotePublicKeys">The public keys that are allowed. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property.</param>
 		/// <param name="localPrivateKey">The private key you use to connect.</param>
 		/// <param name="error">An error message for if something goes wrong.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
@@ -184,8 +184,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					{
 						// read remote public key
 						remotePublicKey.ImportCspBlob(reader.ReadBinaryData());
-						output.remotePublicKey = remotePublicKey.ExportParameters(false);
-						if (remotePublicKeys != null && !remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.remotePublicKey.Modulus)))
+						output.RemotePublicKey = remotePublicKey.ExportParameters(false);
+						if (remotePublicKeys != null && !remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.RemotePublicKey.Modulus)))
 						{
 							output.Dispose();
 							error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
@@ -218,7 +218,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// Responds to a handshake to setup secure connection over <see cref="Stream"/>.
 		/// </summary>
 		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
-		/// <param name="remotePublicKeys">The public keys that are allowed. Can be left <see langword="null"/> to allow connection from anyone. Key can also be found later using <see cref="remotePublicKey"/> property.</param>
+		/// <param name="remotePublicKeys">The public keys that are allowed. Can be left <see langword="null"/> to allow connection from anyone. Key can also be found later using <see cref="RemotePublicKey"/> property.</param>
 		/// <param name="localPrivateKey">The private key you use to connect.</param>
 		/// <param name="error">An error message for if something goes wrong.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
@@ -245,8 +245,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					using (var remotePublicKey = new RSACryptoServiceProvider())
 					{
 						remotePublicKey.ImportCspBlob(reader.ReadBinaryData());
-						output.remotePublicKey = remotePublicKey.ExportParameters(false);
-						if (remotePublicKeys != null && !remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.remotePublicKey.Modulus)))
+						output.RemotePublicKey = remotePublicKey.ExportParameters(false);
+						if (remotePublicKeys != null && !remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.RemotePublicKey.Modulus)))
 						{
 							output.Dispose();
 							error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
