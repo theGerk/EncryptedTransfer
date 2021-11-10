@@ -8,7 +8,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
         [DllImport("msvcrt.dll", CallingConvention = CallingConvention.Cdecl)]
         private static extern int memcmp(byte[] b1, byte[] b2, UIntPtr count);
 
-        public static bool SequenceEqual(this byte[] b1, byte[] b2)
+        public static bool SequenceEquals(this byte[] b1, byte[] b2)
         {
             if (b1 == b2) return true; //reference equality check
 

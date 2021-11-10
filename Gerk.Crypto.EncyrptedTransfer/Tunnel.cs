@@ -53,9 +53,9 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		private readonly bool leaveOpen;
 #endif
 		/// <summary>
-		/// The public key for the other end of the connection. Can be used as an identity.
+		/// The CspBlob for the remote key for the other end of the connection. Can be used as an identity.
 		/// </summary>
-		public RSAParameters RemotePublicKey { private set; get; }
+		public byte[] RemotePublicKey { private set; get; }
 
 		/// <summary>
 		/// Constructor
@@ -146,13 +146,13 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// Initiates handshake to setup secure connection over <see cref="Stream"/>.
 		/// </summary>
 		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
-		/// <param name="remotePublicKeys">The public keys that are allowed. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property.</param>
+		/// <param name="remotePublicKeys">The public keys that are allowed, encoded as Csp blobs. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property.</param>
 		/// <param name="localPrivateKey">The private key you use to connect.</param>
 		/// <param name="error">An error message for if something goes wrong.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
 		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-		public static Tunnel CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
+		public static Tunnel CreateInitiator(Stream stream, IEnumerable<byte[]> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
 #else
 		public static Tunnel CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error)
 #endif
@@ -180,28 +180,31 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 					// read encrypted AES key
 					using (var sharedKey = ReadAesKey(reader, localPrivateKey))
-					using (var remotePublicKey = new RSACryptoServiceProvider())
 					{
 						// read remote public key
-						remotePublicKey.ImportCspBlob(reader.ReadBinaryData());
-						output.RemotePublicKey = remotePublicKey.ExportParameters(false);
-						if (remotePublicKeys != null && !remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.RemotePublicKey.Modulus)))
+						output.RemotePublicKey = reader.ReadBinaryData();
+						if (remotePublicKeys != null && !remotePublicKeys.Any(x => x.SequenceEquals(output.RemotePublicKey)))
 						{
 							output.Dispose();
 							error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
 							return null;
 						}
 
-						// read challenge signature
-						using (var hash = SHA256.Create())
-							if (!remotePublicKey.VerifyData(challengeMessage, hash, reader.ReadBinaryData()))
-							{
-								output.Dispose();
-								error = TunnelCreationError.RemoteFailedToVierfyItself;
-								return null;
-							}
+						using (var remotePublicKey = new RSACryptoServiceProvider())
+						{
+							remotePublicKey.ImportCspBlob(output.RemotePublicKey);
 
-						output.InitCryptoStreams(sharedKey);
+							// read challenge signature
+							using (var hash = SHA256.Create())
+								if (!remotePublicKey.VerifyData(challengeMessage, hash, reader.ReadBinaryData()))
+								{
+									output.Dispose();
+									error = TunnelCreationError.RemoteFailedToVierfyItself;
+									return null;
+								}
+
+							output.InitCryptoStreams(sharedKey);
+						}
 					}
 				}
 				error = TunnelCreationError.NoError;
@@ -218,13 +221,13 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// Responds to a handshake to setup secure connection over <see cref="Stream"/>.
 		/// </summary>
 		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
-		/// <param name="remotePublicKeys">The public keys that are allowed. Can be left <see langword="null"/> to allow connection from anyone. Key can also be found later using <see cref="RemotePublicKey"/> property.</param>
+		/// <param name="remotePublicKeys">The public keys that are allowed, encoded as Csp blobs. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property.</param>
 		/// <param name="localPrivateKey">The private key you use to connect.</param>
 		/// <param name="error">An error message for if something goes wrong.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
 		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-		public static Tunnel CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
+		public static Tunnel CreateResponder(Stream stream, IEnumerable<byte[]> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
 #else
 		public static Tunnel CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error)
 #endif
@@ -242,16 +245,16 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					// read some metadata
 
 					// read public key
+					output.RemotePublicKey = reader.ReadBinaryData();
+					if (remotePublicKeys != null && !remotePublicKeys.Any(x => x.SequenceEquals(output.RemotePublicKey)))
+					{
+						output.Dispose();
+						error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
+						return null;
+					}
 					using (var remotePublicKey = new RSACryptoServiceProvider())
 					{
-						remotePublicKey.ImportCspBlob(reader.ReadBinaryData());
-						output.RemotePublicKey = remotePublicKey.ExportParameters(false);
-						if (remotePublicKeys != null && !remotePublicKeys.Any(x => x.Modulus.SequenceEqual(output.RemotePublicKey.Modulus)))
-						{
-							output.Dispose();
-							error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
-							return null;
-						}
+						remotePublicKey.ImportCspBlob(output.RemotePublicKey);
 
 						// write encrypted AES key
 						using (var sharedKey = aeskey())

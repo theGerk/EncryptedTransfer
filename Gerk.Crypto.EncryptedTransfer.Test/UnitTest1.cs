@@ -19,11 +19,11 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 	public static class UnitTest1
 	{
 
-		public static string reciver(Stream stream, RSAParameters local, RSAParameters remote, string send)
+		public static string reciver(Stream stream, byte[] local, byte[] remote, string send)
 		{
 			using var rsa = new RSACryptoServiceProvider();
-			rsa.ImportParameters(local);
-			using var tunnel = Tunnel.CreateResponder(stream, new RSAParameters[] { remote }, rsa, out var err);
+			rsa.ImportCspBlob(local);
+			using var tunnel = Tunnel.CreateResponder(stream, new byte[][] { remote }, rsa, out var err);
 			if (err != TunnelCreationError.NoError)
 				throw new Exception(err.ToString());
 			using var reader = new BinaryReader(tunnel);
@@ -35,11 +35,11 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 			return line;
 		}
 
-		public static string sender(Stream stream, RSAParameters local, RSAParameters remote, string send)
+		public static string sender(Stream stream, byte[] local, byte[] remote, string send)
 		{
 			using var rsa = new RSACryptoServiceProvider();
-			rsa.ImportParameters(local);
-			using var tunnel = Tunnel.CreateInitiator(stream, new RSAParameters[] { remote }, rsa, out var err);
+			rsa.ImportCspBlob(local);
+			using var tunnel = Tunnel.CreateInitiator(stream, new byte[][] { remote }, rsa, out var err);
 			if (err != TunnelCreationError.NoError)
 				throw new Exception(err.ToString());
 			using var reader = new BinaryReader(tunnel);
@@ -66,8 +66,8 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 
 
 
-			var sendTask = Task.Run(() => sender(client.GetStream(), c.ExportParameters(true), d.ExportParameters(false), msg));
-			var reciveTask = Task.Run(() => reciver(server.AcceptTcpClient().GetStream(), d.ExportParameters(true), c.ExportParameters(false), response));
+			var sendTask = Task.Run(() => sender(client.GetStream(), c.ExportCspBlob(true), d.ExportCspBlob(false), msg));
+			var reciveTask = Task.Run(() => reciver(server.AcceptTcpClient().GetStream(), d.ExportCspBlob(true), c.ExportCspBlob(false), response));
 			await Task.WhenAll(sendTask, reciveTask);
 			Assert.True(await sendTask == response);
 			Assert.True(await reciveTask == msg);
