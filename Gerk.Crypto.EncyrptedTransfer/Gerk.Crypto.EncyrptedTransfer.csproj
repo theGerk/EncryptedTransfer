@@ -7,8 +7,8 @@
       <Description>Secure transfer library.</Description>
       <Copyright />
       <PackageLicenseExpression>MIT</PackageLicenseExpression>
-      <PackageProjectUrl>https://github.com/theGerk/LinqExtensions</PackageProjectUrl>
-      <RepositoryUrl>https://github.com/theGerk/LinqExtensions</RepositoryUrl>
+      <PackageProjectUrl>https://github.com/theGerk/EncryptedTransfer</PackageProjectUrl>
+      <RepositoryUrl>https://github.com/theGerk/EncryptedTransfer</RepositoryUrl>
       <RepositoryType>git</RepositoryType>
       <PackageTags></PackageTags>
       <PackageReleaseNotes>More features coming.</PackageReleaseNotes>
