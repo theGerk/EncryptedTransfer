@@ -14,12 +14,12 @@ namespace ConsoleApp1
 	{
 		public static int startbreaking = 0;
 
-		public static string reciver(Stream stream, RSAParameters local, RSAParameters remote, string send)
+		public static string reciver(Stream stream, byte[] local, byte[] remote, string send)
 		{
 			using (var rsa = new RSACryptoServiceProvider())
 			{
-				rsa.ImportParameters(local);
-				using (var tunnel = Tunnel.CreateResponder(stream, new RSAParameters[] { remote }, rsa, out var err))
+				rsa.ImportCspBlob(local);
+				using (var tunnel = Tunnel.CreateResponder(stream, new byte[][] { remote }, rsa, out var err))
 				{
 					if (err != TunnelCreationError.NoError)
 						throw new Exception(err.ToString());
@@ -36,12 +36,12 @@ namespace ConsoleApp1
 			}
 		}
 
-		public static string sender(Stream stream, RSAParameters local, RSAParameters remote, string send)
+		public static string sender(Stream stream, byte[] local, byte[] remote, string send)
 		{
 			using (var rsa = new RSACryptoServiceProvider())
 			{
-				rsa.ImportParameters(local);
-				using (var tunnel = Tunnel.CreateInitiator(stream, new RSAParameters[] { remote }, rsa, out var err))
+				rsa.ImportCspBlob(local);
+				using (var tunnel = Tunnel.CreateInitiator(stream, new byte[][] { remote }, rsa, out var err))
 				{
 					if (err != TunnelCreationError.NoError)
 						throw new Exception(err.ToString());
@@ -74,8 +74,8 @@ namespace ConsoleApp1
 
 
 
-				var sendTask = Task.Run(() => sender(client.GetStream(), c.ExportParameters(true), d.ExportParameters(false), msg));
-				var reciveTask = Task.Run(() => reciver(server.AcceptTcpClient().GetStream(), d.ExportParameters(true), c.ExportParameters(false), response));
+				var sendTask = Task.Run(() => sender(client.GetStream(), c.ExportCspBlob(true), d.ExportCspBlob(false), msg));
+				var reciveTask = Task.Run(() => reciver(server.AcceptTcpClient().GetStream(), d.ExportCspBlob(true), c.ExportCspBlob(false), response));
 				await Task.WhenAll(sendTask, reciveTask);
 				Console.WriteLine(await sendTask == response);
 				Console.WriteLine(await reciveTask == msg);

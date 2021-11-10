@@ -62,13 +62,15 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// </summary>
 		/// <param name="stream">The underlying stream.</param>
 		/// <param name="leaveOpen">Whether to leave open or not.</param>
+		private Tunnel(
+			Stream stream
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-		private Tunnel(Stream stream, bool leaveOpen = false)
+			, bool leaveOpen = false
+#endif
+		)
 		{
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			this.leaveOpen = leaveOpen;
-#else
-		private Tunnel(Stream stream)
-		{
 #endif
 			this.underlyingStream = stream;
 		}
@@ -81,13 +83,17 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		{
 			var dec = sharedKey.CreateDecryptor();
 			var enc = sharedKey.CreateEncryptor();
+
+			CryptoStream makeCryptoStream(ICryptoTransform crypto, CryptoStreamMode csm) => new CryptoStream(
+					underlyingStream
+					, crypto
+					, csm
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-			readStream = new CryptoStream(underlyingStream, dec, CryptoStreamMode.Read, leaveOpen);
-			writeStream = new CryptoStream(underlyingStream, enc, CryptoStreamMode.Write, leaveOpen);
-#else
-			readStream = new CryptoStream(underlyingStream, dec, CryptoStreamMode.Read);
-			writeStream = new CryptoStream(underlyingStream, enc, CryptoStreamMode.Write);
+					, leaveOpen
 #endif
+				);
+			readStream = makeCryptoStream(dec, CryptoStreamMode.Read);
+			writeStream = makeCryptoStream(enc, CryptoStreamMode.Write);
 		}
 
 		/// <summary>
@@ -151,17 +157,23 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// <param name="error">An error message for if something goes wrong.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
 		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
+		public static Tunnel CreateInitiator(
+			Stream stream
+			, IEnumerable<byte[]> remotePublicKeys
+			, RSACryptoServiceProvider localPrivateKey
+			, out TunnelCreationError error
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-		public static Tunnel CreateInitiator(Stream stream, IEnumerable<byte[]> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
-#else
-		public static Tunnel CreateInitiator(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error)
+			, bool leaveOpen = false
 #endif
+		)
 		{
+			var output = new Tunnel(
+				stream
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-			var output = new Tunnel(stream, leaveOpen);
-#else
-			var output = new Tunnel(stream);
+				, leaveOpen
 #endif
+			);
+
 			try
 			{
 				using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
@@ -226,17 +238,22 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// <param name="error">An error message for if something goes wrong.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
 		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
+		public static Tunnel CreateResponder(
+			Stream stream
+			, IEnumerable<byte[]> remotePublicKeys
+			, RSACryptoServiceProvider localPrivateKey
+			, out TunnelCreationError error
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-		public static Tunnel CreateResponder(Stream stream, IEnumerable<byte[]> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error, bool leaveOpen = false)
-#else
-		public static Tunnel CreateResponder(Stream stream, IEnumerable<RSAParameters> remotePublicKeys, RSACryptoServiceProvider localPrivateKey, out TunnelCreationError error)
+			, bool leaveOpen = false
 #endif
+		)
 		{
+			var output = new Tunnel(
+				stream
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-			var output = new Tunnel(stream, leaveOpen);
-#else
-			var output = new Tunnel(stream);
+				, leaveOpen
 #endif
+			);
 			try
 			{
 				using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
