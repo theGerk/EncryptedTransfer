@@ -23,7 +23,7 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportCspBlob(local);
-			using var tunnel = Tunnel.CreateInitiator(stream, rsa, new byte[][] { remote }, x => SHA256.HashData(x), out _, out var err);
+			using var tunnel = Tunnel.CreateResponder(stream, rsa, new byte[][] { remote }, out _, out var err);
 			if (err != TunnelCreationError.NoError)
 				throw new Exception(err.ToString());
 			using var reader = new BinaryReader(tunnel);
@@ -39,7 +39,7 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportCspBlob(local);
-			using var tunnel = Tunnel.CreateInitiator(stream, rsa, new byte[][] { remote }, x => SHA256.HashData(x), out _, out var err);
+			using var tunnel = Tunnel.CreateInitiator(stream, rsa, new byte[][] { remote }, out _, out var err);
 			if (err != TunnelCreationError.NoError)
 				throw new Exception(err.ToString());
 			using var reader = new BinaryReader(tunnel);
@@ -60,14 +60,15 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 
 			using var c = new RSACryptoServiceProvider();
 			using var d = new RSACryptoServiceProvider();
+			using var sha = SHA256.Create();
 
 			const string msg = "Hello world!";
 			const string response = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
 
 
 
-			var sendTask = Task.Run(() => sender(client.GetStream(), c.ExportCspBlob(true), d.ExportCspBlob(false), msg));
-			var reciveTask = Task.Run(() => reciver(server.AcceptTcpClient().GetStream(), d.ExportCspBlob(true), c.ExportCspBlob(false), response));
+			var sendTask = Task.Run(() => sender(client.GetStream(), c.ExportCspBlob(true), SHA256.HashData(d.ExportCspBlob(false)), msg));
+			var reciveTask = Task.Run(() => reciver(server.AcceptTcpClient().GetStream(), d.ExportCspBlob(true), SHA256.HashData(c.ExportCspBlob(false)), response));
 			await Task.WhenAll(sendTask, reciveTask);
 			Assert.True(await sendTask == response);
 			Assert.True(await reciveTask == msg);
