@@ -13,12 +13,13 @@
       <PackageTags></PackageTags>
       <PackageReleaseNotes>More features coming.</PackageReleaseNotes>
       <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-      <Version>1.1.0</Version>
+      <Version>1.2.0</Version>
       <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Gerk.BinaryExtension" Version="2.0.0" />
+    <PackageReference Include="Gerk.LinqExtensions" Version="2.0.2" />
     <PackageReference Include="System.ValueTuple" Version="4.5.0" />
   </ItemGroup>
 

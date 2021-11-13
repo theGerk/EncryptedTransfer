@@ -9,6 +9,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Gerk.BinaryExtension;
+using Gerk.LinqExtensions;
 
 namespace Gerk.Crypto.EncyrptedTransfer
 {
@@ -17,6 +18,139 @@ namespace Gerk.Crypto.EncyrptedTransfer
 	/// </summary>
 	public class Tunnel : Stream
 	{
+		#region Create overloads
+		#region Initiator Overloads
+		/// <summary>
+		/// Initiates handshake to setup secure connection over <see cref="Stream"/>.
+		/// </summary>
+		/// <typeparam name="T">Identity type.</typeparam>
+		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
+		/// <param name="localPrivateKey">The private key you use to connect.</param>
+		/// <param name="remoteIds">Identifies the public keys that are allowed, encoded as Csp blobs. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property.</param>
+		/// <param name="remoteIdentity">The element of <paramref name="remoteIds"/> that matched the remote's public key. If there was an error or <paramref name="remoteIds"/> was <see langword="null"/> this may be left default.</param>
+		/// <param name="error">An error message for if something goes wrong.</param>
+		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
+		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
+		public static Tunnel CreateInitiator<T>(
+			Stream stream
+			, RSACryptoServiceProvider localPrivateKey
+			, IEnumerable<T> remoteIds
+			, out T remoteIdentity
+			, out TunnelCreationError error
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			, bool leaveOpen = false
+#endif
+		) where T : IHasPublicKeySha => CreateInitiator(
+			stream
+			, localPrivateKey
+			, remoteIds
+			, x => x.GetPublicKeySha()
+			, out remoteIdentity
+			, out error
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			, leaveOpen
+#endif
+		);
+
+		/// <summary>
+		/// Initiates handshake to setup secure connection over <see cref="Stream"/>.
+		/// </summary>
+		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
+		/// <param name="localPrivateKey">The private key you use to connect.</param>
+		/// <param name="remotePublicKeyHashes">The SHA256 hashes of the public keys (encoded as Csp blobs) that are allowed. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property (this is the original, not the hash).</param>
+		/// <param name="remotePublicKeyHash">The element of <paramref name="remotePublicKeyHashes"/> that matched the remote's public key. If there was an error or <paramref name="remotePublicKeyHashes"/> was <see langword="null"/> this may be left default.</param>
+		/// <param name="error">An error message for if something goes wrong.</param>
+		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
+		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
+		public static Tunnel CreateInitiator(
+			Stream stream
+			, RSACryptoServiceProvider localPrivateKey
+			, IEnumerable<byte[]> remotePublicKeyHashes
+			, out byte[] remotePublicKeyHash
+			, out TunnelCreationError error
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			, bool leaveOpen = false
+#endif
+		) => CreateInitiator(
+			stream
+			, localPrivateKey
+			, remotePublicKeyHashes
+			, x => x
+			, out remotePublicKeyHash
+			, out error
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			, leaveOpen
+#endif
+		);
+		#endregion
+
+
+		#region Initiator Overloads
+		/// <summary>
+		/// Responds to a handshake to setup secure connection over <see cref="Stream"/>.
+		/// </summary>
+		/// <typeparam name="T">Identity type.</typeparam>
+		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
+		/// <param name="localPrivateKey">The private key you use to connect.</param>
+		/// <param name="remoteIds">Identifies the public keys that are allowed, encoded as Csp blobs. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property.</param>
+		/// <param name="remoteIdentity">The element of <paramref name="remoteIds"/> that matched the remote's public key. If there was an error or <paramref name="remoteIds"/> was <see langword="null"/> this may be left default.</param>
+		/// <param name="error">An error message for if something goes wrong.</param>
+		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
+		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
+		public static Tunnel CreateResponder<T>(
+			Stream stream
+			, RSACryptoServiceProvider localPrivateKey
+			, IEnumerable<T> remoteIds
+			, out T remoteIdentity
+			, out TunnelCreationError error
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			, bool leaveOpen = false
+#endif
+		) where T : IHasPublicKeySha => CreateResponder(
+			stream
+			, localPrivateKey
+			, remoteIds
+			, x => x.GetPublicKeySha()
+			, out remoteIdentity
+			, out error
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			, leaveOpen
+#endif
+		);
+
+		/// <summary>
+		/// Responds to a handshake to setup secure connection over <see cref="Stream"/>.
+		/// </summary>
+		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
+		/// <param name="localPrivateKey">The private key you use to connect.</param>
+		/// <param name="remotePublicKeyHashes">The SHA256 hashes of the public keys (encoded as Csp blobs) that are allowed. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property (this is the original, not the hash).</param>
+		/// <param name="remotePublicKeyHash">The element of <paramref name="remotePublicKeyHashes"/> that matched the remote's public key. If there was an error or <paramref name="remotePublicKeyHashes"/> was <see langword="null"/> this may be left default.</param>
+		/// <param name="error">An error message for if something goes wrong.</param>
+		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
+		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
+		public static Tunnel CreateResponder(
+			Stream stream
+			, RSACryptoServiceProvider localPrivateKey
+			, IEnumerable<byte[]> remotePublicKeyHashes
+			, out byte[] remotePublicKeyHash
+			, out TunnelCreationError error
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			, bool leaveOpen = false
+#endif
+		) => CreateResponder(
+			stream
+			, localPrivateKey
+			, remotePublicKeyHashes
+			, x => x
+			, out remotePublicKeyHash
+			, out error
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			, leaveOpen
+#endif
+		);
+		#endregion
+		#endregion
+
 		// All sizes below are listed in bytes.
 		/// <summary>
 		/// Size of the challenge message in bytes to initiate connection.
@@ -24,7 +158,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		private const uint CHALLANGE_SIZE = 16;
 		private const bool USE_OAEP_PADDING = true;
 		private const uint AES_KEY_LENGTH = 32; // 256 bit key
-		private const uint AES_IV_LENGTH = 16; // Part of AES definition
+		private const uint AES_IV_LENGTH = 16;  // Part of AES definition
 		private const uint AES_BLOCK_SIZE = 16; // Part of AES definition
 
 		// Crypto streams to read and write
@@ -57,6 +191,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// </summary>
 		public byte[] RemotePublicKey { private set; get; }
 
+		#region CreateHelpers
 		/// <summary>
 		/// Constructor
 		/// </summary>
@@ -74,6 +209,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 #endif
 			this.underlyingStream = stream;
 		}
+
 
 		/// <summary>
 		/// Creates <see cref="CryptoStream"/>s.
@@ -147,20 +283,26 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			output.Padding = PaddingMode.None;
 			return output;
 		}
+		#endregion
 
+		#region Create
 		/// <summary>
 		/// Initiates handshake to setup secure connection over <see cref="Stream"/>.
 		/// </summary>
 		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
-		/// <param name="remotePublicKeys">The public keys that are allowed, encoded as Csp blobs. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property.</param>
 		/// <param name="localPrivateKey">The private key you use to connect.</param>
+		/// <param name="remoteIds">A collection of remote Ids that are acceptable. Can be left <see langword="null"/> to ingore verification.</param>
+		/// <param name="publicKeyShaExtractor">A function that gets the SHA256 hash of a public key encoded as a CspBlob from elements of <paramref name="remoteIds"/>.</param>
+		/// <param name="remoteIdentity">The element of <paramref name="remoteIds"/> that matched the remote's public key. If there was an error or <paramref name="remoteIds"/> was <see langword="null"/> this may be left default.</param>
 		/// <param name="error">An error message for if something goes wrong.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
 		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
-		public static Tunnel CreateInitiator(
+		public static Tunnel CreateInitiator<Id>(
 			Stream stream
-			, IEnumerable<byte[]> remotePublicKeys
 			, RSACryptoServiceProvider localPrivateKey
+			, IEnumerable<Id> remoteIds
+			, Func<Id, byte[]> publicKeyShaExtractor
+			, out Id remoteIdentity
 			, out TunnelCreationError error
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			, bool leaveOpen = false
@@ -178,6 +320,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			{
 				using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
 				using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
+				using (var hash = SHA256.Create())
 				{
 					// write some metadata
 
@@ -195,25 +338,35 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					{
 						// read remote public key
 						output.RemotePublicKey = reader.ReadBinaryData();
-						if (remotePublicKeys != null && !remotePublicKeys.Any(x => x.SequenceEquals(output.RemotePublicKey)))
+						if (remoteIds != null)
 						{
-							output.Dispose();
-							error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
-							return null;
+							var remotePublicKeySha = hash.ComputeHash(output.RemotePublicKey);
+							(var id, var foundPublicKey) = remoteIds.FirstIfExists(x => publicKeyShaExtractor(x).SequenceEquals(remotePublicKeySha));
+
+							if (!foundPublicKey)
+							{
+								output.Dispose();
+								error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
+								remoteIdentity = default;
+								return null;
+							}
+
+							remoteIdentity = id;
 						}
+						else
+							remoteIdentity = default;
 
 						using (var remotePublicKey = new RSACryptoServiceProvider())
 						{
 							remotePublicKey.ImportCspBlob(output.RemotePublicKey);
 
 							// read challenge signature
-							using (var hash = SHA256.Create())
-								if (!remotePublicKey.VerifyData(challengeMessage, hash, reader.ReadBinaryData()))
-								{
-									output.Dispose();
-									error = TunnelCreationError.RemoteFailedToVierfyItself;
-									return null;
-								}
+							if (!remotePublicKey.VerifyData(challengeMessage, hash, reader.ReadBinaryData()))
+							{
+								output.Dispose();
+								error = TunnelCreationError.RemoteFailedToVierfyItself;
+								return null;
+							}
 
 							output.InitCryptoStreams(sharedKey);
 						}
@@ -233,15 +386,18 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// Responds to a handshake to setup secure connection over <see cref="Stream"/>.
 		/// </summary>
 		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
-		/// <param name="remotePublicKeys">The public keys that are allowed, encoded as Csp blobs. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property.</param>
 		/// <param name="localPrivateKey">The private key you use to connect.</param>
+		/// <param name="remoteIds">A collection of remote Ids that are acceptable. Can be left <see langword="null"/> to ingore verification.</param>
+		/// <param name="publicKeyShaExtractor">A function that gets the SHA256 hash of a public key encoded as a CspBlob from elements of <paramref name="remoteIds"/>.</param>
+		/// <param name="remoteIdentity">The element of <paramref name="remoteIds"/> that matched the remote's public key. If there was an error or <paramref name="remoteIds"/> was <see langword="null"/> this may be left default.</param>
 		/// <param name="error">An error message for if something goes wrong.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
-		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
-		public static Tunnel CreateResponder(
+		public static Tunnel CreateResponder<Id>(
 			Stream stream
-			, IEnumerable<byte[]> remotePublicKeys
 			, RSACryptoServiceProvider localPrivateKey
+			, IEnumerable<Id> remoteIds
+			, Func<Id, byte[]> publicKeyShaExtractor
+			, out Id remoteIdentity
 			, out TunnelCreationError error
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			, bool leaveOpen = false
@@ -258,17 +414,30 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			{
 				using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
 				using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
+				using (var hash = SHA256.Create())
 				{
 					// read some metadata
 
-					// read public key
+					// read remote public key
 					output.RemotePublicKey = reader.ReadBinaryData();
-					if (remotePublicKeys != null && !remotePublicKeys.Any(x => x.SequenceEquals(output.RemotePublicKey)))
+					if (remoteIds != null)
 					{
-						output.Dispose();
-						error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
-						return null;
+						var remotePublicKeySha = hash.ComputeHash(output.RemotePublicKey);
+						(var id, var foundPublicKey) = remoteIds.FirstIfExists(x => publicKeyShaExtractor(x).SequenceEquals(remotePublicKeySha));
+
+						if (!foundPublicKey)
+						{
+							output.Dispose();
+							error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
+							remoteIdentity = default;
+							return null;
+						}
+
+						remoteIdentity = id;
 					}
+					else
+						remoteIdentity = default;
+
 					using (var remotePublicKey = new RSACryptoServiceProvider())
 					{
 						remotePublicKey.ImportCspBlob(output.RemotePublicKey);
@@ -288,8 +457,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 							writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
 
 							// write challenge signature
-							using (var hash = SHA256.Create())
-								writer.WriteBinaryData(localPrivateKey.SignData(challengeMessage, hash));
+							writer.WriteBinaryData(localPrivateKey.SignData(challengeMessage, hash));
 
 							output.InitCryptoStreams(sharedKey);
 						}
@@ -305,6 +473,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 				throw;
 			}
 		}
+		#endregion
 
 		/// <inheritdoc/>
 		public override bool CanRead => true;

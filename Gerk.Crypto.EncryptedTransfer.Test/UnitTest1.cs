@@ -23,7 +23,7 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportCspBlob(local);
-			using var tunnel = Tunnel.CreateResponder(stream, new byte[][] { remote }, rsa, out var err);
+			using var tunnel = Tunnel.CreateInitiator(stream, rsa, new byte[][] { remote }, x => SHA256.HashData(x), out _, out var err);
 			if (err != TunnelCreationError.NoError)
 				throw new Exception(err.ToString());
 			using var reader = new BinaryReader(tunnel);
@@ -39,7 +39,7 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportCspBlob(local);
-			using var tunnel = Tunnel.CreateInitiator(stream, new byte[][] { remote }, rsa, out var err);
+			using var tunnel = Tunnel.CreateInitiator(stream, rsa, new byte[][] { remote }, x => SHA256.HashData(x), out _, out var err);
 			if (err != TunnelCreationError.NoError)
 				throw new Exception(err.ToString());
 			using var reader = new BinaryReader(tunnel);
