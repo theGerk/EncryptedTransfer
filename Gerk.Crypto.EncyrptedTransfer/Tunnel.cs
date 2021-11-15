@@ -390,8 +390,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					}
 				}
 
-				var zeros = new byte[AES_KEY_LENGTH];
-				output.Write(zeros, 0, (int)AES_KEY_LENGTH);
+				output.Write(new byte[AES_BLOCK_SIZE], 0, (int)AES_BLOCK_SIZE);
 
 				error = TunnelCreationError.NoError;
 				return output;
