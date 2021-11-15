@@ -23,5 +23,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// The other side of the tunnel failed to prove their identiity.
 		/// </summary>
 		RemoteFailedToVierfyItself,
+		ConnectionLost,
+		RemoteNeedsUpgrade,
+		INeedUpgrade,
 	}
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.IO.Pipes;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -160,6 +161,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		private const uint AES_KEY_LENGTH = 32; // 256 bit key
 		private const uint AES_IV_LENGTH = 16;  // Part of AES definition
 		private const uint AES_BLOCK_SIZE = 16; // Part of AES definition
+		private static readonly int VERSION_NUMBER = Assembly.GetCallingAssembly().GetName().Version.Major;
 
 		// Crypto streams to read and write
 		private CryptoStream readStream;
@@ -192,6 +194,13 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		public byte[] RemotePublicKey { private set; get; }
 
 		#region CreateHelpers
+		private static int ReadAndWriteVersion(BinaryWriter writer, BinaryReader reader)
+		{
+			writer.Write(VERSION_NUMBER);
+			return reader.ReadInt32();
+		}
+
+
 		/// <summary>
 		/// Constructor
 		/// </summary>
@@ -204,10 +213,10 @@ namespace Gerk.Crypto.EncyrptedTransfer
 #endif
 		)
 		{
+			underlyingStream = stream;
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			this.leaveOpen = leaveOpen;
 #endif
-			this.underlyingStream = stream;
 		}
 
 
@@ -323,6 +332,13 @@ namespace Gerk.Crypto.EncyrptedTransfer
 				using (var hash = SHA256.Create())
 				{
 					// write some metadata
+					var remoteVersion = ReadAndWriteVersion(writer, reader);
+					if (remoteVersion != VERSION_NUMBER)
+					{
+						error = remoteVersion < VERSION_NUMBER ? TunnelCreationError.RemoteNeedsUpgrade : TunnelCreationError.INeedUpgrade;
+						remoteIdentity = default;
+						return null;
+					}
 
 					// write public key
 					writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
@@ -341,17 +357,18 @@ namespace Gerk.Crypto.EncyrptedTransfer
 						if (remoteIds != null)
 						{
 							var remotePublicKeySha = hash.ComputeHash(output.RemotePublicKey);
-							(var id, var foundPublicKey) = remoteIds.FirstIfExists(x => publicKeyShaExtractor(x).SequenceEquals(remotePublicKeySha));
 
-							if (!foundPublicKey)
+							if (remoteIds.TryFirst(x => publicKeyShaExtractor(x).SequenceEquals(remotePublicKeySha), out var id))
+							{
+								remoteIdentity = id;
+							}
+							else
 							{
 								output.Dispose();
 								error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
 								remoteIdentity = default;
 								return null;
 							}
-
-							remoteIdentity = id;
 						}
 						else
 							remoteIdentity = default;
@@ -372,6 +389,10 @@ namespace Gerk.Crypto.EncyrptedTransfer
 						}
 					}
 				}
+
+				var zeros = new byte[AES_KEY_LENGTH];
+				output.Write(zeros, 0, (int)AES_KEY_LENGTH);
+
 				error = TunnelCreationError.NoError;
 				return output;
 			}
@@ -417,15 +438,25 @@ namespace Gerk.Crypto.EncyrptedTransfer
 				using (var hash = SHA256.Create())
 				{
 					// read some metadata
+					var remoteVersion = ReadAndWriteVersion(writer, reader);
+					if (remoteVersion != VERSION_NUMBER)
+					{
+						error = remoteVersion < VERSION_NUMBER ? TunnelCreationError.RemoteNeedsUpgrade : TunnelCreationError.INeedUpgrade;
+						remoteIdentity = default;
+						return null;
+					}
 
 					// read remote public key
 					output.RemotePublicKey = reader.ReadBinaryData();
 					if (remoteIds != null)
 					{
 						var remotePublicKeySha = hash.ComputeHash(output.RemotePublicKey);
-						(var id, var foundPublicKey) = remoteIds.FirstIfExists(x => publicKeyShaExtractor(x).SequenceEquals(remotePublicKeySha));
 
-						if (!foundPublicKey)
+						if (remoteIds.TryFirst(x => publicKeyShaExtractor(x).SequenceEquals(remotePublicKeySha), out var id))
+						{
+							remoteIdentity = id;
+						}
+						else
 						{
 							output.Dispose();
 							error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
@@ -433,7 +464,6 @@ namespace Gerk.Crypto.EncyrptedTransfer
 							return null;
 						}
 
-						remoteIdentity = id;
 					}
 					else
 						remoteIdentity = default;
@@ -463,6 +493,22 @@ namespace Gerk.Crypto.EncyrptedTransfer
 						}
 					}
 				}
+
+				// read an encrypted 16 zeros
+				var zeros = new byte[AES_BLOCK_SIZE];
+				var read = output.Read(zeros, 0, (int)AES_BLOCK_SIZE);
+				if (read != AES_BLOCK_SIZE)
+				{
+					error = TunnelCreationError.ConnectionLost;
+					return null;
+				}
+
+				if (!new byte[AES_BLOCK_SIZE].SequenceEquals(zeros))
+				{
+					error = TunnelCreationError.RemoteFailedToVierfyItself;
+					return null;
+				}
+
 
 				error = TunnelCreationError.NoError;
 				return output;
@@ -555,7 +601,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			if (!leaveOpen)
 #endif
-				underlyingStream?.Close();
+			underlyingStream?.Close();
 		}
 	}
 }

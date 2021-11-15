@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-      <TargetFrameworks>net6;net5;netstandard2.1;netstandard2.0;net45</TargetFrameworks>
+      <TargetFrameworks>net6;net5;netstandard2.1;netstandard2.0;net451</TargetFrameworks>
       <Authors>Benji Altman</Authors>
       <Company></Company>
       <Description>Secure transfer library.</Description>
@@ -13,14 +13,13 @@
       <PackageTags></PackageTags>
       <PackageReleaseNotes>More features coming.</PackageReleaseNotes>
       <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-      <Version>1.2.0</Version>
+      <Version>2.0.0</Version>
       <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Gerk.BinaryExtension" Version="2.0.0" />
-    <PackageReference Include="Gerk.LinqExtensions" Version="2.0.2" />
-    <PackageReference Include="System.ValueTuple" Version="4.5.0" />
+    <PackageReference Include="Gerk.LinqExtensions" Version="2.1.0" />
   </ItemGroup>
 
 </Project>
