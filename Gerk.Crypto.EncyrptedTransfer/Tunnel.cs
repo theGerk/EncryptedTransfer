@@ -539,24 +539,33 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// </summary>
 		public override void Flush() => underlyingStream.Flush();
 
+
+		private byte[] writeBuff = new byte[BlockSize];
 		/// <summary>
 		/// Writes 0s to the stream until the end the current block so it can be sent.
 		/// </summary>
 		public virtual void FlushWriter()
 		{
-			int bytesToWrite = (int)(BlockSize - (bytesWritten % BlockSize));
-			if (bytesToWrite != BlockSize)
-				Write(new byte[bytesToWrite], 0, bytesToWrite);
+			var bytesToWrite = bytesWritten % BlockSize;
+			if (bytesToWrite != 0)
+			{
+				bytesToWrite = BlockSize - bytesToWrite;
+				Write(writeBuff, 0, (int)bytesToWrite);
+			}
 		}
 
+		private byte[] readBuff = new byte[BlockSize];
 		/// <summary>
 		/// Skips to the end of the current block. Meant to skip the 0s wrote by <see cref="FlushWriter"/>.
 		/// </summary>
 		public virtual void FlushReader()
 		{
-			int bytesToRead = (int)(BlockSize - bytesRead % BlockSize);
-			if (bytesToRead != BlockSize)
-				Write(new byte[bytesToRead], 0, bytesToRead);
+			var bytesToRead = bytesRead % BlockSize;
+			if (bytesToRead != 0)
+			{
+				bytesToRead = BlockSize - bytesToRead;
+				Read(readBuff, 0, (int)bytesToRead);
+			}
 		}
 
 		/// <inheritdoc/>

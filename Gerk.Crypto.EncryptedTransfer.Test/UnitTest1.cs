@@ -19,7 +19,7 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 	public static class UnitTest1
 	{
 
-		public static string reciver(Stream stream, byte[] local, byte[] remote, string send)
+		public static ushort reciver(Stream stream, byte[] local, byte[] remote, string send)
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportCspBlob(local);
@@ -31,11 +31,12 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 
 			writer.Write(send);
 			tunnel.FlushWriter();
-			var line = reader.ReadString();
+			var line = reader.ReadUInt16();
+			tunnel.FlushReader();
 			return line;
 		}
 
-		public static string sender(Stream stream, byte[] local, byte[] remote, string send)
+		public static string sender(Stream stream, byte[] local, byte[] remote, ushort send)
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportCspBlob(local);
@@ -47,6 +48,7 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 			writer.Write(send);
 			tunnel.FlushWriter();
 			var line = reader.ReadString();
+			tunnel.FlushReader();
 			return line;
 		}
 
@@ -62,7 +64,7 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 			using var d = new RSACryptoServiceProvider();
 			using var sha = SHA256.Create();
 
-			const string msg = "Hello world!";
+			const ushort msg = 1;
 			const string response = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
 
 
