@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 
-namespace Gerk.Crypto.EncyrptedTransfer
+namespace Gerk.Crypto.EncryptedTransfer
 {
 	internal static class ByteArrayExtensions
     {

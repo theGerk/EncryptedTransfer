@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 using Gerk.BinaryExtension;
 using Gerk.LinqExtensions;
 
-namespace Gerk.Crypto.EncyrptedTransfer
+namespace Gerk.Crypto.EncryptedTransfer
 {
 	/// <summary>
 	/// A <see cref="Stream"/> for end to end encrypted and secure transfering of data. Data is only written to the underlying stream in blocks. You can complete a block that needs to be written by using <see cref="FlushWriter"/>. When reading, wherever you expect a block to be completed by a <see cref="FlushWriter"/> you should call <see cref="FlushReader"/> to jump to the end of the block. Wrapping this stream with a <see cref="StreamReader"/> or <see cref="StreamWriter"/> is not currently supported. Rather you are encouraged to use a <see cref="BinaryReader"/> and <see cref="BinaryWriter"/>.
@@ -153,10 +153,6 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		#endregion
 
 		// All sizes below are listed in bytes.
-		/// <summary>
-		/// Size of the challenge message in bytes to initiate connection.
-		/// </summary>
-		private const uint CHALLANGE_SIZE = 16;
 		private const bool USE_OAEP_PADDING = true;
 		private const uint AES_KEY_LENGTH = 32; // 256 bit key
 		private const uint AES_IV_LENGTH = 16;  // Part of AES definition
@@ -344,10 +340,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
 
 					// write challenge
-					var challengeMessage = new byte[CHALLANGE_SIZE];
-					using (var rand = new RNGCryptoServiceProvider())
-						rand.GetBytes(challengeMessage);
-					writer.Write(challengeMessage);
+					var challengeMessage = Guid.NewGuid();
+					writer.Write(Guid.NewGuid());
 
 					// read encrypted AES key
 					using (var sharedKey = ReadAesKey(reader, localPrivateKey))
@@ -378,7 +372,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 							remotePublicKey.ImportCspBlob(output.RemotePublicKey);
 
 							// read challenge signature
-							if (!remotePublicKey.VerifyData(challengeMessage, hash, reader.ReadBinaryData()))
+							if (!remotePublicKey.VerifyData(challengeMessage.ToByteArray(), hash, reader.ReadBinaryData()))
 							{
 								output.Dispose();
 								error = TunnelCreationError.RemoteFailedToVierfyItself;
@@ -479,14 +473,13 @@ namespace Gerk.Crypto.EncyrptedTransfer
 							WriteAesKey(sharedKey, writer, remotePublicKey);
 
 							// read challenge
-							byte[] challengeMessage = new byte[CHALLANGE_SIZE];
-							reader.Read(challengeMessage, 0, (int)CHALLANGE_SIZE);
+							var challengeMessage = reader.ReadGuid();
 
 							// write local public key
 							writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
 
 							// write challenge signature
-							writer.WriteBinaryData(localPrivateKey.SignData(challengeMessage, hash));
+							writer.WriteBinaryData(localPrivateKey.SignData(challengeMessage.ToByteArray(), hash));
 
 							output.InitCryptoStreams(sharedKey);
 						}
@@ -609,7 +602,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			if (!leaveOpen)
 #endif
-			underlyingStream?.Close();
+				underlyingStream?.Close();
 		}
 	}
 }
