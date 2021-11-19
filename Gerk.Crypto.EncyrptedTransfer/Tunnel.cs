@@ -590,6 +590,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// <inheritdoc/>
 		public override async ValueTask DisposeAsync()
 		{
+			if (writeStream != null)
+				FlushWriter();
 			var a = writeStream.DisposeAsync();
 			var b = readStream.DisposeAsync();
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
@@ -604,6 +606,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 		/// <inheritdoc/>
 		public override void Close()
 		{
+			if (writeStream != null)
+				FlushWriter();
 			writeStream?.Close();
 			readStream?.Close();
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER

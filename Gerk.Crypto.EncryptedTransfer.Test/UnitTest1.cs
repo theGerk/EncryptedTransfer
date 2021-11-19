@@ -18,7 +18,6 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 {
 	public static class UnitTest1
 	{
-
 		public static ushort reciver(Stream stream, byte[] local, byte[] remote, string send)
 		{
 			using var rsa = new RSACryptoServiceProvider();
@@ -53,7 +52,7 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 		}
 
 		[Fact]
-		public static async Task Test1()
+		public static async Task Maintest()
 		{
 			TcpListener server = new TcpListener(System.Net.IPAddress.Loopback, 0);
 			server.Start();
@@ -74,6 +73,12 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 			await Task.WhenAll(sendTask, reciveTask);
 			Assert.True(await sendTask == response);
 			Assert.True(await reciveTask == msg);
+		}
+
+		[Fact]
+		public static async Task FlushwriterRepeatedly()
+		{
+
 		}
 	}
 }
