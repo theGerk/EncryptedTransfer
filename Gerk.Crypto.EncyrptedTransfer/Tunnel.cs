@@ -327,31 +327,43 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 			try
 			{
-				using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
-				using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
 				using (var hash = SHA256.Create())
 				{
-					// write some metadata
-					var remoteVersion = ReadAndWriteVersion(writer, reader);
-					if (remoteVersion != VERSION_NUMBER)
+					using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
+					using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
 					{
-						error = remoteVersion < VERSION_NUMBER ? TunnelCreationError.RemoteNeedsUpgrade : TunnelCreationError.INeedUpgrade;
-						remoteIdentity = default;
-						return null;
+						// write some metadata
+						var remoteVersion = ReadAndWriteVersion(writer, reader);
+						if (remoteVersion != VERSION_NUMBER)
+						{
+							error = remoteVersion < VERSION_NUMBER ? TunnelCreationError.RemoteNeedsUpgrade : TunnelCreationError.INeedUpgrade;
+							remoteIdentity = default;
+							return null;
+						}
+
+						// write public key
+						writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
+
+						// read encrypted AES key
+						using (var sharedKey = ReadAesKey(reader, localPrivateKey))
+						{
+							output.InitCryptoStreams(sharedKey);
+						}
 					}
 
-					// write public key
-					writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
-
-					// write challenge
-					var challengeMessage = new byte[CHALLANGE_SIZE];
-					using (var rand = new RNGCryptoServiceProvider())
-						rand.GetBytes(challengeMessage);
-					writer.Write(challengeMessage);
-
-					// read encrypted AES key
-					using (var sharedKey = ReadAesKey(reader, localPrivateKey))
+					// From here on in everything is encrypted with AES key
+					using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
+					using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
 					{
+						// write challenge
+						var challengeMessage = new byte[CHALLANGE_SIZE];
+						using (var rand = new RNGCryptoServiceProvider())
+							rand.GetBytes(challengeMessage);
+						writer.Write(challengeMessage);
+
+						// write block of zeros.
+						writer.Write(new byte[AES_BLOCK_SIZE]);
+
 						// read remote public key
 						output.RemotePublicKey = reader.ReadBinaryData();
 						if (remoteIds != null)
@@ -385,15 +397,11 @@ namespace Gerk.Crypto.EncyrptedTransfer
 								return null;
 							}
 
-							output.InitCryptoStreams(sharedKey);
+							error = TunnelCreationError.NoError;
+							return output;
 						}
 					}
 				}
-
-				output.Write(new byte[AES_BLOCK_SIZE], 0, (int)AES_BLOCK_SIZE);
-
-				error = TunnelCreationError.NoError;
-				return output;
 			}
 			catch
 			{
@@ -432,85 +440,88 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			);
 			try
 			{
-				using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
-				using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
 				using (var hash = SHA256.Create())
 				{
-					// read some metadata
-					var remoteVersion = ReadAndWriteVersion(writer, reader);
-					if (remoteVersion != VERSION_NUMBER)
+					byte[] challengeMessageBuffer = new byte[CHALLANGE_SIZE];
+					using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
+					using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
 					{
-						error = remoteVersion < VERSION_NUMBER ? TunnelCreationError.RemoteNeedsUpgrade : TunnelCreationError.INeedUpgrade;
-						remoteIdentity = default;
-						return null;
-					}
-
-					// read remote public key
-					output.RemotePublicKey = reader.ReadBinaryData();
-					if (remoteIds != null)
-					{
-						var remotePublicKeySha = hash.ComputeHash(output.RemotePublicKey);
-
-						if (remoteIds.TryFirst(x => publicKeyShaExtractor(x).SequenceEquals(remotePublicKeySha), out var id))
-						{
-							remoteIdentity = id;
-						}
-						else
+						// read some metadata
+						var remoteVersion = ReadAndWriteVersion(writer, reader);
+						if (remoteVersion != VERSION_NUMBER)
 						{
 							output.Dispose();
-							error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
+							error = remoteVersion < VERSION_NUMBER ? TunnelCreationError.RemoteNeedsUpgrade : TunnelCreationError.INeedUpgrade;
 							remoteIdentity = default;
 							return null;
 						}
 
-					}
-					else
-						remoteIdentity = default;
-
-					using (var remotePublicKey = new RSACryptoServiceProvider())
-					{
-						remotePublicKey.ImportCspBlob(output.RemotePublicKey);
-
-						// write encrypted AES key
-						using (var sharedKey = aeskey())
+						// read remote public key
+						output.RemotePublicKey = reader.ReadBinaryData();
+						if (remoteIds != null)
 						{
-							sharedKey.GenerateKey();
-							sharedKey.GenerateIV();
-							WriteAesKey(sharedKey, writer, remotePublicKey);
+							var remotePublicKeySha = hash.ComputeHash(output.RemotePublicKey);
 
-							// read challenge
-							byte[] challengeMessage = new byte[CHALLANGE_SIZE];
-							reader.Read(challengeMessage, 0, (int)CHALLANGE_SIZE);
+							if (remoteIds.TryFirst(x => publicKeyShaExtractor(x).SequenceEquals(remotePublicKeySha), out var id))
+							{
+								remoteIdentity = id;
+							}
+							else
+							{
+								output.Dispose();
+								error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
+								remoteIdentity = default;
+								return null;
+							}
 
-							// write local public key
-							writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
+						}
+						else
+							remoteIdentity = default;
 
-							// write challenge signature
-							writer.WriteBinaryData(localPrivateKey.SignData(challengeMessage, hash));
+						using (var remotePublicKey = new RSACryptoServiceProvider())
+						{
+							remotePublicKey.ImportCspBlob(output.RemotePublicKey);
 
-							output.InitCryptoStreams(sharedKey);
+							// write encrypted AES key
+							using (var sharedKey = aeskey())
+							{
+								sharedKey.GenerateKey();
+								sharedKey.GenerateIV();
+								WriteAesKey(sharedKey, writer, remotePublicKey);
+
+								output.InitCryptoStreams(sharedKey);
+							}
 						}
 					}
+
+					// frome here on in everything is encrytped with AES key.
+					using (var reader = new BinaryReader(output, Encoding.UTF8, true))
+					using (var writer = new BinaryWriter(output, Encoding.UTF8, true))
+					{
+						// write local public key
+						writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
+
+						// read challenge
+						reader.Read(challengeMessageBuffer, 0, (int)CHALLANGE_SIZE);
+
+						// write challenge signature
+						var sig = localPrivateKey.SignData(challengeMessageBuffer, hash);
+						writer.WriteBinaryData(sig);
+
+						// read block of zeros
+						var zeros = reader.ReadBytes((int)AES_BLOCK_SIZE);
+
+						if (!new byte[AES_BLOCK_SIZE].SequenceEquals(zeros))
+						{
+							output.Dispose();
+							error = TunnelCreationError.RemoteFailedToVierfyItself;
+							return null;
+						}
+					}
+
+					error = TunnelCreationError.NoError;
+					return output;
 				}
-
-				// read an encrypted 16 zeros
-				var zeros = new byte[AES_BLOCK_SIZE];
-				var read = output.Read(zeros, 0, (int)AES_BLOCK_SIZE);
-				if (read != AES_BLOCK_SIZE)
-				{
-					error = TunnelCreationError.ConnectionLost;
-					return null;
-				}
-
-				if (!new byte[AES_BLOCK_SIZE].SequenceEquals(zeros))
-				{
-					error = TunnelCreationError.RemoteFailedToVierfyItself;
-					return null;
-				}
-
-
-				error = TunnelCreationError.NoError;
-				return output;
 			}
 			catch
 			{
@@ -613,7 +624,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			if (!leaveOpen)
 #endif
-			underlyingStream?.Close();
+				underlyingStream?.Close();
 		}
 	}
 }
