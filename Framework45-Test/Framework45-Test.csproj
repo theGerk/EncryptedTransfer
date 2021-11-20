@@ -53,8 +53,8 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Gerk.Crypto.EncyrptedTransfer\Gerk.Crypto.EncryptedTransfer.csproj">
-      <Project>{0b8921ae-a3a3-4db7-ab9c-3c95339f423b}</Project>
+    <ProjectReference Include="..\Gerk.Crypto.EncryptedTransfer\Gerk.Crypto.EncryptedTransfer.csproj">
+      <Project>{20ee6a10-c8e4-4509-ada9-67f7d633eb3a}</Project>
       <Name>Gerk.Crypto.EncryptedTransfer</Name>
     </ProjectReference>
   </ItemGroup>
