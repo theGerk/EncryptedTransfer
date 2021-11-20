@@ -2,7 +2,7 @@
 using System.IO;
 using System.Security.Cryptography;
 
-namespace Gerk.Crypto.EncyrptedTransfer
+namespace Gerk.Crypto.EncryptedTransfer
 {
 	/// <summary>
 	/// Error code for errors that happen during the tunnel creation

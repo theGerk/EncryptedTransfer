@@ -5,9 +5,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Security.Cryptography;
 using System.Net.Sockets;
-using Gerk.Crypto.EncyrptedTransfer;
 using System.IO;
-
+using Gerk.Crypto.EncryptedTransfer;
 namespace ConsoleApp1
 {
 	public static class Program

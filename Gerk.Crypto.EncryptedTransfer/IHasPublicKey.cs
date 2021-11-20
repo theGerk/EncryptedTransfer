@@ -5,7 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Gerk.Crypto.EncyrptedTransfer
+namespace Gerk.Crypto.EncryptedTransfer
 {
 	/// <summary>
 	/// Something that has a public key hash

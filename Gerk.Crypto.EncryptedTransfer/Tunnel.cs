@@ -13,7 +13,7 @@ using Gerk.BinaryExtension;
 using Gerk.LinqExtensions;
 
 
-namespace Gerk.Crypto.EncyrptedTransfer
+namespace Gerk.Crypto.EncryptedTransfer
 {
 	/// <summary>
 	/// A <see cref="Stream"/> for end to end encrypted and secure transfering of data. Data is only written to the underlying stream in blocks. You can complete a block that needs to be written by using <see cref="FlushWriter"/>. When reading, wherever you expect a block to be completed by a <see cref="FlushWriter"/> you should call <see cref="FlushReader"/> to jump to the end of the block. Wrapping this stream with a <see cref="StreamReader"/> or <see cref="StreamWriter"/> is not currently supported. Rather you are encouraged to use a <see cref="BinaryReader"/> and <see cref="BinaryWriter"/>.
