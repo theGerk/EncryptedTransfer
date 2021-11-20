@@ -53,9 +53,9 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Gerk.Crypto.EncyrptedTransfer\Gerk.Crypto.EncyrptedTransfer.csproj">
+    <ProjectReference Include="..\Gerk.Crypto.EncyrptedTransfer\Gerk.Crypto.EncryptedTransfer.csproj">
       <Project>{0b8921ae-a3a3-4db7-ab9c-3c95339f423b}</Project>
-      <Name>Gerk.Crypto.EncyrptedTransfer</Name>
+      <Name>Gerk.Crypto.EncryptedTransfer</Name>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 16
-VisualStudioVersion = 16.0.31729.503
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Gerk.Crypto.EncyrptedTransfer", "Gerk.Crypto.EncyrptedTransfer\Gerk.Crypto.EncyrptedTransfer.csproj", "{0B8921AE-A3A3-4DB7-AB9C-3C95339F423B}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Gerk.Crypto.EncryptedTransfer", "Gerk.Crypto.EncyrptedTransfer\Gerk.Crypto.EncryptedTransfer.csproj", "{0B8921AE-A3A3-4DB7-AB9C-3C95339F423B}"
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Gerk.Crypto.EncryptedTransfer.Test", "Gerk.Crypto.EncryptedTransfer.Test\Gerk.Crypto.EncryptedTransfer.Test.csproj", "{F4577A6A-E9D6-40A0-A9AE-1EBF54FF395B}"
 EndProject

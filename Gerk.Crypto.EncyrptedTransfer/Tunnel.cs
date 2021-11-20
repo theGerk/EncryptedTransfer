@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Gerk.BinaryExtension;
 using Gerk.LinqExtensions;
 
+
 namespace Gerk.Crypto.EncyrptedTransfer
 {
 	/// <summary>
@@ -352,8 +353,8 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					}
 
 					// From here on in everything is encrypted with AES key
-					using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
-					using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
+					using (var writer = new BinaryWriter(output, Encoding.UTF8, true))
+					using (var reader = new BinaryReader(output, Encoding.UTF8, true))
 					{
 						// write challenge
 						var challengeMessage = new byte[CHALLANGE_SIZE];
@@ -366,6 +367,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 
 						// read remote public key
 						output.RemotePublicKey = reader.ReadBinaryData();
+						Debug.WriteLine($"{output.RemotePublicKey.Length} {Convert.ToBase64String(output.RemotePublicKey)}");
 						if (remoteIds != null)
 						{
 							var remotePublicKeySha = hash.ComputeHash(output.RemotePublicKey);
@@ -442,7 +444,6 @@ namespace Gerk.Crypto.EncyrptedTransfer
 			{
 				using (var hash = SHA256.Create())
 				{
-					byte[] challengeMessageBuffer = new byte[CHALLANGE_SIZE];
 					using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
 					using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
 					{
@@ -456,6 +457,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 							return null;
 						}
 
+						//TODO put in protection from dos attack where they just give a massive byte array.
 						// read remote public key
 						output.RemotePublicKey = reader.ReadBinaryData();
 						if (remoteIds != null)
@@ -499,13 +501,15 @@ namespace Gerk.Crypto.EncyrptedTransfer
 					using (var writer = new BinaryWriter(output, Encoding.UTF8, true))
 					{
 						// write local public key
-						writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
+						var pubkey = localPrivateKey.ExportCspBlob(false);
+						Debug.WriteLine($"{pubkey.Length} {Convert.ToBase64String(pubkey)}");
+						writer.WriteBinaryData(pubkey);
 
 						// read challenge
-						reader.Read(challengeMessageBuffer, 0, (int)CHALLANGE_SIZE);
+						var challengeMessage = reader.ReadBytes((int)CHALLANGE_SIZE);
 
 						// write challenge signature
-						var sig = localPrivateKey.SignData(challengeMessageBuffer, hash);
+						var sig = localPrivateKey.SignData(challengeMessage, hash);
 						writer.WriteBinaryData(sig);
 
 						// read block of zeros
@@ -624,7 +628,7 @@ namespace Gerk.Crypto.EncyrptedTransfer
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			if (!leaveOpen)
 #endif
-				underlyingStream?.Close();
+			underlyingStream?.Close();
 		}
 	}
 }
