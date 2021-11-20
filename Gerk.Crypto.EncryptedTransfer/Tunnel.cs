@@ -162,6 +162,7 @@ namespace Gerk.Crypto.EncryptedTransfer
 		private const uint AES_KEY_LENGTH = 32; // 256 bit key
 		private const uint AES_IV_LENGTH = 16;  // Part of AES definition
 		private const uint AES_BLOCK_SIZE = 16; // Part of AES definition
+		private const uint MAX_BUFFER_SIZE = 64 << 10; // 64 kiliobytes
 		private static readonly int VERSION_NUMBER = Assembly.GetCallingAssembly().GetName().Version.Major;
 
 		// Crypto streams to read and write
@@ -248,21 +249,23 @@ namespace Gerk.Crypto.EncryptedTransfer
 		/// <param name="bw"></param>
 		/// <param name="rsa"></param>
 		/// <returns>The AES key</returns>
-		private static Aes ReadAesKey(BinaryReader bw, RSACryptoServiceProvider rsa)
+		private static Aes ReadAesKey(BinaryReader bw, RSACryptoServiceProvider rsa, out bool success)
 		{
 			var aes = aeskey();
-			using (var memStream = new MemoryStream(rsa.Decrypt(bw.ReadBinaryData(), USE_OAEP_PADDING)))
-			using (var writer = new BinaryReader(memStream))
-			{
-				byte[] bytes;
-				bytes = new byte[AES_KEY_LENGTH];
-				memStream.Read(bytes, 0, (int)AES_KEY_LENGTH);
-				aes.Key = bytes;
+			success = bw.TryReadBinaryData(out var encryptedAesKey, (int)MAX_BUFFER_SIZE);
+			if (success)
+				using (var memStream = new MemoryStream(rsa.Decrypt(encryptedAesKey, USE_OAEP_PADDING)))
+				using (var writer = new BinaryReader(memStream))
+				{
+					byte[] bytes;
+					bytes = new byte[AES_KEY_LENGTH];
+					memStream.Read(bytes, 0, (int)AES_KEY_LENGTH);
+					aes.Key = bytes;
 
-				bytes = new byte[AES_IV_LENGTH];
-				memStream.Read(bytes, 0, (int)AES_IV_LENGTH);
-				aes.IV = bytes;
-			}
+					bytes = new byte[AES_IV_LENGTH];
+					memStream.Read(bytes, 0, (int)AES_IV_LENGTH);
+					aes.IV = bytes;
+				}
 			return aes;
 		}
 
@@ -366,7 +369,14 @@ namespace Gerk.Crypto.EncryptedTransfer
 						writer.Write(new byte[AES_BLOCK_SIZE]);
 
 						// read remote public key
-						output.RemotePublicKey = reader.ReadBinaryData();
+						if(!reader.TryReadBinaryData(out var remotePubKey, (int)MAX_BUFFER_SIZE))
+						{
+							output.Dispose();
+							error = TunnelCreationError.RemotePublicKeyToLarge;
+							remoteIdentity = default;
+							return null;
+						}
+						output.RemotePublicKey = remotePubKey;
 						Debug.WriteLine($"{output.RemotePublicKey.Length} {Convert.ToBase64String(output.RemotePublicKey)}");
 						if (remoteIds != null)
 						{
@@ -392,7 +402,11 @@ namespace Gerk.Crypto.EncryptedTransfer
 							remotePublicKey.ImportCspBlob(output.RemotePublicKey);
 
 							// read challenge signature
-							if (!remotePublicKey.VerifyData(challengeMessage, hash, reader.ReadBinaryData()))
+							if(!reader.TryReadBinaryData(out var challengeResponse, (int)MAX_BUFFER_SIZE))
+							{
+
+							}
+							if (!remotePublicKey.VerifyData(challengeMessage, hash, challengeMessage))
 							{
 								output.Dispose();
 								error = TunnelCreationError.RemoteFailedToVierfyItself;

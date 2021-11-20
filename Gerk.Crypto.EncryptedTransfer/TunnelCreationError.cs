@@ -26,5 +26,6 @@ namespace Gerk.Crypto.EncryptedTransfer
 		ConnectionLost,
 		RemoteNeedsUpgrade,
 		INeedUpgrade,
+		RemotePublicKeyToLarge,
 	}
 }
