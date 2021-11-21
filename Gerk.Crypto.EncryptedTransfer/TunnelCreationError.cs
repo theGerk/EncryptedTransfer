@@ -24,8 +24,7 @@ namespace Gerk.Crypto.EncryptedTransfer
 		/// </summary>
 		RemoteFailedToVierfyItself,
 		ConnectionLost,
-		RemoteNeedsUpgrade,
-		INeedUpgrade,
-		RemotePublicKeyToLarge,
+		VersionMismatch,
+		LargeBinaryBlock,
 	}
 }

@@ -21,7 +21,6 @@ namespace Gerk.Crypto.EncryptedTransfer
 	public class Tunnel : Stream
 	{
 		#region Create overloads
-		#region Initiator Overloads
 		/// <summary>
 		/// Initiates handshake to setup secure connection over <see cref="Stream"/>.
 		/// </summary>
@@ -33,22 +32,24 @@ namespace Gerk.Crypto.EncryptedTransfer
 		/// <param name="error">An error message for if something goes wrong.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
 		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
-		public static Tunnel CreateInitiator<T>(
+		public static Tunnel Create<T>(
 			Stream stream
 			, RSACryptoServiceProvider localPrivateKey
 			, IEnumerable<T> remoteIds
 			, out T remoteIdentity
 			, out TunnelCreationError error
+			, out string errorMessage
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			, bool leaveOpen = false
 #endif
-		) where T : IHasPublicKeySha => CreateInitiator(
+		) where T : IHasPublicKeySha => Create(
 			stream
 			, localPrivateKey
 			, remoteIds
 			, x => x.GetPublicKeySha()
 			, out remoteIdentity
 			, out error
+			, out errorMessage
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			, leaveOpen
 #endif
@@ -64,100 +65,34 @@ namespace Gerk.Crypto.EncryptedTransfer
 		/// <param name="error">An error message for if something goes wrong.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
 		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
-		public static Tunnel CreateInitiator(
+		public static Tunnel Create(
 			Stream stream
 			, RSACryptoServiceProvider localPrivateKey
 			, IEnumerable<byte[]> remotePublicKeyHashes
 			, out byte[] remotePublicKeyHash
 			, out TunnelCreationError error
+			, out string errorMessage
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			, bool leaveOpen = false
 #endif
-		) => CreateInitiator(
+		) => Create(
 			stream
 			, localPrivateKey
 			, remotePublicKeyHashes
 			, x => x
 			, out remotePublicKeyHash
 			, out error
+			, out errorMessage
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			, leaveOpen
 #endif
 		);
-		#endregion
-
-
-		#region Initiator Overloads
-		/// <summary>
-		/// Responds to a handshake to setup secure connection over <see cref="Stream"/>.
-		/// </summary>
-		/// <typeparam name="T">Identity type.</typeparam>
-		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
-		/// <param name="localPrivateKey">The private key you use to connect.</param>
-		/// <param name="remoteIds">Identifies the public keys that are allowed, encoded as Csp blobs. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property.</param>
-		/// <param name="remoteIdentity">The element of <paramref name="remoteIds"/> that matched the remote's public key. If there was an error or <paramref name="remoteIds"/> was <see langword="null"/> this may be left default.</param>
-		/// <param name="error">An error message for if something goes wrong.</param>
-		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
-		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
-		public static Tunnel CreateResponder<T>(
-			Stream stream
-			, RSACryptoServiceProvider localPrivateKey
-			, IEnumerable<T> remoteIds
-			, out T remoteIdentity
-			, out TunnelCreationError error
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-			, bool leaveOpen = false
-#endif
-		) where T : IHasPublicKeySha => CreateResponder(
-			stream
-			, localPrivateKey
-			, remoteIds
-			, x => x.GetPublicKeySha()
-			, out remoteIdentity
-			, out error
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-			, leaveOpen
-#endif
-		);
-
-		/// <summary>
-		/// Responds to a handshake to setup secure connection over <see cref="Stream"/>.
-		/// </summary>
-		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
-		/// <param name="localPrivateKey">The private key you use to connect.</param>
-		/// <param name="remotePublicKeyHashes">The SHA256 hashes of the public keys (encoded as Csp blobs) that are allowed. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property (this is the original, not the hash).</param>
-		/// <param name="remotePublicKeyHash">The element of <paramref name="remotePublicKeyHashes"/> that matched the remote's public key. If there was an error or <paramref name="remotePublicKeyHashes"/> was <see langword="null"/> this may be left default.</param>
-		/// <param name="error">An error message for if something goes wrong.</param>
-		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
-		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
-		public static Tunnel CreateResponder(
-			Stream stream
-			, RSACryptoServiceProvider localPrivateKey
-			, IEnumerable<byte[]> remotePublicKeyHashes
-			, out byte[] remotePublicKeyHash
-			, out TunnelCreationError error
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-			, bool leaveOpen = false
-#endif
-		) => CreateResponder(
-			stream
-			, localPrivateKey
-			, remotePublicKeyHashes
-			, x => x
-			, out remotePublicKeyHash
-			, out error
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-			, leaveOpen
-#endif
-		);
-		#endregion
 		#endregion
 
 		// All sizes below are listed in bytes.
 		/// <summary>
 		/// Size of the challenge message in bytes to initiate connection.
 		/// </summary>
-		private const uint CHALLANGE_SIZE = 16;
 		private const bool USE_OAEP_PADDING = true;
 		private const uint AES_KEY_LENGTH = 32; // 256 bit key
 		private const uint AES_IV_LENGTH = 16;  // Part of AES definition
@@ -190,10 +125,6 @@ namespace Gerk.Crypto.EncryptedTransfer
 		/// </summary>
 		private readonly bool leaveOpen;
 #endif
-		/// <summary>
-		/// The CspBlob for the remote key for the other end of the connection. Can be used as an identity.
-		/// </summary>
-		public byte[] RemotePublicKey { private set; get; }
 
 		#region CreateHelpers
 		private static int ReadAndWriteVersion(BinaryWriter writer, BinaryReader reader)
@@ -249,24 +180,31 @@ namespace Gerk.Crypto.EncryptedTransfer
 		/// <param name="bw"></param>
 		/// <param name="rsa"></param>
 		/// <returns>The AES key</returns>
-		private static Aes ReadAesKey(BinaryReader bw, RSACryptoServiceProvider rsa, out bool success)
+		private static bool XorAgainstAESKeyFromStream(BinaryReader bw, RSACryptoServiceProvider rsa, Aes aes, out byte[] otherAesKey)
 		{
-			var aes = aeskey();
-			success = bw.TryReadBinaryData(out var encryptedAesKey, (int)MAX_BUFFER_SIZE);
+			var success = bw.TryReadBinaryData(out var encryptedAesKey, (int)MAX_BUFFER_SIZE);
 			if (success)
+			{
 				using (var memStream = new MemoryStream(rsa.Decrypt(encryptedAesKey, USE_OAEP_PADDING)))
-				using (var writer = new BinaryReader(memStream))
+				using (var reader = new BinaryReader(memStream))
 				{
 					byte[] bytes;
-					bytes = new byte[AES_KEY_LENGTH];
-					memStream.Read(bytes, 0, (int)AES_KEY_LENGTH);
-					aes.Key = bytes;
 
-					bytes = new byte[AES_IV_LENGTH];
-					memStream.Read(bytes, 0, (int)AES_IV_LENGTH);
-					aes.IV = bytes;
+					bytes = reader.ReadBytes((int)AES_IV_LENGTH);
+					aes.IV.xor(bytes);
+
+					bytes = reader.ReadBytes((int)AES_KEY_LENGTH);
+					aes.Key.xor(bytes);
+
+					otherAesKey = bytes;
 				}
-			return aes;
+				return true;
+			}
+			else
+			{
+				otherAesKey = null;
+				return false;
+			}
 		}
 
 		/// <summary>
@@ -300,7 +238,7 @@ namespace Gerk.Crypto.EncryptedTransfer
 
 		#region Create
 		/// <summary>
-		/// Initiates handshake to setup secure connection over <see cref="Stream"/>.
+		/// Initiates symetric handshake to setup secure connection over <see cref="Stream"/>.
 		/// </summary>
 		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
 		/// <param name="localPrivateKey">The private key you use to connect.</param>
@@ -310,13 +248,14 @@ namespace Gerk.Crypto.EncryptedTransfer
 		/// <param name="error">An error message for if something goes wrong.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
 		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
-		public static Tunnel CreateInitiator<Id>(
+		public static Tunnel Create<Id>(
 			Stream stream
 			, RSACryptoServiceProvider localPrivateKey
 			, IEnumerable<Id> remoteIds
 			, Func<Id, byte[]> publicKeyShaExtractor
 			, out Id remoteIdentity
 			, out TunnelCreationError error
+			, out string errorMessage
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			, bool leaveOpen = false
 #endif
@@ -333,6 +272,8 @@ namespace Gerk.Crypto.EncryptedTransfer
 			{
 				using (var hash = SHA256.Create())
 				{
+					byte[] othersAesKey;
+					byte[] myAesKey;
 					using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
 					using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
 					{
@@ -340,7 +281,9 @@ namespace Gerk.Crypto.EncryptedTransfer
 						var remoteVersion = ReadAndWriteVersion(writer, reader);
 						if (remoteVersion != VERSION_NUMBER)
 						{
-							error = remoteVersion < VERSION_NUMBER ? TunnelCreationError.RemoteNeedsUpgrade : TunnelCreationError.INeedUpgrade;
+							output.Dispose();
+							error = TunnelCreationError.VersionMismatch;
+							errorMessage = $"My version: {VERSION_NUMBER}. Remote version: {remoteVersion}.";
 							remoteIdentity = default;
 							return null;
 						}
@@ -348,9 +291,58 @@ namespace Gerk.Crypto.EncryptedTransfer
 						// write public key
 						writer.WriteBinaryData(localPrivateKey.ExportCspBlob(false));
 
-						// read encrypted AES key
-						using (var sharedKey = ReadAesKey(reader, localPrivateKey))
+						// read public key
+						if (!reader.TryReadBinaryData(out var remotePublicKeyCspBlob, (int)MAX_BUFFER_SIZE))
 						{
+							output.Dispose();
+							error = TunnelCreationError.LargeBinaryBlock;
+							errorMessage = $"Refusing to read public key was larger than max size of {MAX_BUFFER_SIZE} bytes.";
+							remoteIdentity = default;
+							return null;
+						}
+
+						if (remoteIds != null)
+						{
+							var remotePublicKeySha = hash.ComputeHash(remotePublicKeyCspBlob);
+
+							if (remoteIds.TryFirst(x => publicKeyShaExtractor(x).SequenceEquals(remotePublicKeySha), out var id))
+							{
+								remoteIdentity = id;
+							}
+							else
+							{
+								output.Dispose();
+								error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
+								errorMessage = "Remote's public key is not one of the valid keys passed in.";
+								remoteIdentity = default;
+								return null;
+							}
+						}
+						else
+							remoteIdentity = default;
+
+						// write encrypted AES key
+						using (var sharedKey = aeskey())
+						{
+							sharedKey.GenerateKey();
+							sharedKey.GenerateIV();
+							myAesKey = sharedKey.Key;
+
+							using (var remotePublicKey = new RSACryptoServiceProvider())
+							{
+								remotePublicKey.ImportCspBlob(remotePublicKeyCspBlob);
+								WriteAesKey(sharedKey, writer, remotePublicKey);
+							}
+
+							// read encrypted AES key
+							if (!XorAgainstAESKeyFromStream(reader, localPrivateKey, sharedKey, out othersAesKey))
+							{
+								output.Dispose();
+								error = TunnelCreationError.LargeBinaryBlock;
+								errorMessage = $"Refusing to read encrypted AES key larger than {MAX_BUFFER_SIZE} bytes.";
+								return null;
+							}
+
 							output.InitCryptoStreams(sharedKey);
 						}
 					}
@@ -359,185 +351,22 @@ namespace Gerk.Crypto.EncryptedTransfer
 					using (var writer = new BinaryWriter(output, Encoding.UTF8, true))
 					using (var reader = new BinaryReader(output, Encoding.UTF8, true))
 					{
-						// write challenge
-						var challengeMessage = new byte[CHALLANGE_SIZE];
-						using (var rand = new RNGCryptoServiceProvider())
-							rand.GetBytes(challengeMessage);
-						writer.Write(challengeMessage);
+						// write first block of AES key as a proof that we read it.
+						// theoretically we could write anything here to prove it, but if we just did a block of zeros those could be replayed at us, this forces some asymetry so that an attacker can't replay their message at us.
+						writer.Write(othersAesKey, 0, (int)AES_BLOCK_SIZE);
 
-						// write block of zeros.
-						writer.Write(new byte[AES_BLOCK_SIZE]);
-
-						// read remote public key
-						if(!reader.TryReadBinaryData(out var remotePubKey, (int)MAX_BUFFER_SIZE))
-						{
-							output.Dispose();
-							error = TunnelCreationError.RemotePublicKeyToLarge;
-							remoteIdentity = default;
-							return null;
-						}
-						output.RemotePublicKey = remotePubKey;
-						Debug.WriteLine($"{output.RemotePublicKey.Length} {Convert.ToBase64String(output.RemotePublicKey)}");
-						if (remoteIds != null)
-						{
-							var remotePublicKeySha = hash.ComputeHash(output.RemotePublicKey);
-
-							if (remoteIds.TryFirst(x => publicKeyShaExtractor(x).SequenceEquals(remotePublicKeySha), out var id))
-							{
-								remoteIdentity = id;
-							}
-							else
-							{
-								output.Dispose();
-								error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
-								remoteIdentity = default;
-								return null;
-							}
-						}
-						else
-							remoteIdentity = default;
-
-						using (var remotePublicKey = new RSACryptoServiceProvider())
-						{
-							remotePublicKey.ImportCspBlob(output.RemotePublicKey);
-
-							// read challenge signature
-							if(!reader.TryReadBinaryData(out var challengeResponse, (int)MAX_BUFFER_SIZE))
-							{
-
-							}
-							if (!remotePublicKey.VerifyData(challengeMessage, hash, challengeMessage))
-							{
-								output.Dispose();
-								error = TunnelCreationError.RemoteFailedToVierfyItself;
-								return null;
-							}
-
-							error = TunnelCreationError.NoError;
-							return output;
-						}
-					}
-				}
-			}
-			catch
-			{
-				output.Dispose();
-				throw;
-			}
-		}
-
-		/// <summary>
-		/// Responds to a handshake to setup secure connection over <see cref="Stream"/>.
-		/// </summary>
-		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
-		/// <param name="localPrivateKey">The private key you use to connect.</param>
-		/// <param name="remoteIds">A collection of remote Ids that are acceptable. Can be left <see langword="null"/> to ingore verification.</param>
-		/// <param name="publicKeyShaExtractor">A function that gets the SHA256 hash of a public key encoded as a CspBlob from elements of <paramref name="remoteIds"/>.</param>
-		/// <param name="remoteIdentity">The element of <paramref name="remoteIds"/> that matched the remote's public key. If there was an error or <paramref name="remoteIds"/> was <see langword="null"/> this may be left default.</param>
-		/// <param name="error">An error message for if something goes wrong.</param>
-		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
-		public static Tunnel CreateResponder<Id>(
-			Stream stream
-			, RSACryptoServiceProvider localPrivateKey
-			, IEnumerable<Id> remoteIds
-			, Func<Id, byte[]> publicKeyShaExtractor
-			, out Id remoteIdentity
-			, out TunnelCreationError error
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-			, bool leaveOpen = false
-#endif
-		)
-		{
-			var output = new Tunnel(
-				stream
-#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
-				, leaveOpen
-#endif
-			);
-			try
-			{
-				using (var hash = SHA256.Create())
-				{
-					using (var writer = new BinaryWriter(stream, Encoding.UTF8, true))
-					using (var reader = new BinaryReader(stream, Encoding.UTF8, true))
-					{
-						// read some metadata
-						var remoteVersion = ReadAndWriteVersion(writer, reader);
-						if (remoteVersion != VERSION_NUMBER)
-						{
-							output.Dispose();
-							error = remoteVersion < VERSION_NUMBER ? TunnelCreationError.RemoteNeedsUpgrade : TunnelCreationError.INeedUpgrade;
-							remoteIdentity = default;
-							return null;
-						}
-
-						//TODO put in protection from dos attack where they just give a massive byte array.
-						// read remote public key
-						output.RemotePublicKey = reader.ReadBinaryData();
-						if (remoteIds != null)
-						{
-							var remotePublicKeySha = hash.ComputeHash(output.RemotePublicKey);
-
-							if (remoteIds.TryFirst(x => publicKeyShaExtractor(x).SequenceEquals(remotePublicKeySha), out var id))
-							{
-								remoteIdentity = id;
-							}
-							else
-							{
-								output.Dispose();
-								error = TunnelCreationError.RemoteDoesNotHaveValidPublicKey;
-								remoteIdentity = default;
-								return null;
-							}
-
-						}
-						else
-							remoteIdentity = default;
-
-						using (var remotePublicKey = new RSACryptoServiceProvider())
-						{
-							remotePublicKey.ImportCspBlob(output.RemotePublicKey);
-
-							// write encrypted AES key
-							using (var sharedKey = aeskey())
-							{
-								sharedKey.GenerateKey();
-								sharedKey.GenerateIV();
-								WriteAesKey(sharedKey, writer, remotePublicKey);
-
-								output.InitCryptoStreams(sharedKey);
-							}
-						}
-					}
-
-					// frome here on in everything is encrytped with AES key.
-					using (var reader = new BinaryReader(output, Encoding.UTF8, true))
-					using (var writer = new BinaryWriter(output, Encoding.UTF8, true))
-					{
-						// write local public key
-						var pubkey = localPrivateKey.ExportCspBlob(false);
-						Debug.WriteLine($"{pubkey.Length} {Convert.ToBase64String(pubkey)}");
-						writer.WriteBinaryData(pubkey);
-
-						// read challenge
-						var challengeMessage = reader.ReadBytes((int)CHALLANGE_SIZE);
-
-						// write challenge signature
-						var sig = localPrivateKey.SignData(challengeMessage, hash);
-						writer.WriteBinaryData(sig);
-
-						// read block of zeros
-						var zeros = reader.ReadBytes((int)AES_BLOCK_SIZE);
-
-						if (!new byte[AES_BLOCK_SIZE].SequenceEquals(zeros))
+						// read remote aes key
+						if(BinaryHelpers.memcmp(myAesKey, reader.ReadBytes((int)AES_BLOCK_SIZE), (UIntPtr)AES_BLOCK_SIZE) != 0)
 						{
 							output.Dispose();
 							error = TunnelCreationError.RemoteFailedToVierfyItself;
+							errorMessage = "Remote failed to prove its identity.";
 							return null;
 						}
 					}
 
 					error = TunnelCreationError.NoError;
+					errorMessage = null;
 					return output;
 				}
 			}
