@@ -21,9 +21,9 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportCspBlob(local);
-			using var tunnel = Tunnel.CreateResponder(stream, rsa, new byte[][] { remote }, out _, out var err);
+			using var tunnel = Tunnel.Create(stream, rsa, new byte[][] { remote }, out _, out var err, out var errm);
 			if (err != TunnelCreationError.NoError)
-				throw new Exception(err.ToString());
+				throw new Exception(errm);
 			using var reader = new BinaryReader(tunnel);
 			using var writer = new BinaryWriter(tunnel);
 
@@ -38,9 +38,9 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportCspBlob(local);
-			using var tunnel = Tunnel.CreateInitiator(stream, rsa, new byte[][] { remote }, out _, out var err);
+			using var tunnel = Tunnel.Create(stream, rsa, new byte[][] { remote }, out _, out var err, out var errm);
 			if (err != TunnelCreationError.NoError)
-				throw new Exception(err.ToString());
+				throw new Exception(errm);
 			using var reader = new BinaryReader(tunnel);
 			using var writer = new BinaryWriter(tunnel);
 			writer.Write(send);

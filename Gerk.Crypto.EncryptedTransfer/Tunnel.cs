@@ -188,15 +188,14 @@ namespace Gerk.Crypto.EncryptedTransfer
 				using (var memStream = new MemoryStream(rsa.Decrypt(encryptedAesKey, USE_OAEP_PADDING)))
 				using (var reader = new BinaryReader(memStream))
 				{
-					byte[] bytes;
+					var key = aes.Key;
+					otherAesKey = reader.ReadBytes((int)AES_KEY_LENGTH);
+					key.xor(otherAesKey);
+					aes.Key = key;
 
-					bytes = reader.ReadBytes((int)AES_IV_LENGTH);
-					aes.IV.xor(bytes);
-
-					bytes = reader.ReadBytes((int)AES_KEY_LENGTH);
-					aes.Key.xor(bytes);
-
-					otherAesKey = bytes;
+					var iv = aes.IV;
+					iv.xor(reader.ReadBytes((int)AES_IV_LENGTH));
+					aes.IV = iv;
 				}
 				return true;
 			}
@@ -356,7 +355,7 @@ namespace Gerk.Crypto.EncryptedTransfer
 						writer.Write(othersAesKey, 0, (int)AES_BLOCK_SIZE);
 
 						// read remote aes key
-						if(BinaryHelpers.memcmp(myAesKey, reader.ReadBytes((int)AES_BLOCK_SIZE), (UIntPtr)AES_BLOCK_SIZE) != 0)
+						if (BinaryHelpers.memcmp(myAesKey, reader.ReadBytes((int)AES_BLOCK_SIZE), (UIntPtr)AES_BLOCK_SIZE) != 0)
 						{
 							output.Dispose();
 							error = TunnelCreationError.RemoteFailedToVierfyItself;
@@ -471,7 +470,7 @@ namespace Gerk.Crypto.EncryptedTransfer
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
 			if (!leaveOpen)
 #endif
-			underlyingStream?.Close();
+				underlyingStream?.Close();
 		}
 	}
 }
