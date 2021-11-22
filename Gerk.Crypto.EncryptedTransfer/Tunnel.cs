@@ -22,7 +22,7 @@ namespace Gerk.Crypto.EncryptedTransfer
 	{
 		#region Create overloads
 		/// <summary>
-		/// Initiates handshake to setup secure connection over <see cref="Stream"/>.
+		/// Initiates symetric handshake to setup secure connection over <see cref="Stream"/>.
 		/// </summary>
 		/// <typeparam name="T">Identity type.</typeparam>
 		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
@@ -30,6 +30,7 @@ namespace Gerk.Crypto.EncryptedTransfer
 		/// <param name="remoteIds">Identifies the public keys that are allowed, encoded as Csp blobs. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property.</param>
 		/// <param name="remoteIdentity">The element of <paramref name="remoteIds"/> that matched the remote's public key. If there was an error or <paramref name="remoteIds"/> was <see langword="null"/> this may be left default.</param>
 		/// <param name="error">An error message for if something goes wrong.</param>
+		/// <param name="errorMessage">An error message to go along with <paramref name="error"/>.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
 		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
 		public static Tunnel Create<T>(
@@ -56,13 +57,14 @@ namespace Gerk.Crypto.EncryptedTransfer
 		);
 
 		/// <summary>
-		/// Initiates handshake to setup secure connection over <see cref="Stream"/>.
+		/// Initiates symetric handshake to setup secure connection over <see cref="Stream"/>.
 		/// </summary>
 		/// <param name="stream">The underlying stream. Usually expected to be a network stream.</param>
 		/// <param name="localPrivateKey">The private key you use to connect.</param>
 		/// <param name="remotePublicKeyHashes">The SHA256 hashes of the public keys (encoded as Csp blobs) that are allowed. Can be left <see langword="null"/> to allow connection to anyone. Key can also be found later using <see cref="RemotePublicKey"/> property (this is the original, not the hash).</param>
 		/// <param name="remotePublicKeyHash">The element of <paramref name="remotePublicKeyHashes"/> that matched the remote's public key. If there was an error or <paramref name="remotePublicKeyHashes"/> was <see langword="null"/> this may be left default.</param>
 		/// <param name="error">An error message for if something goes wrong.</param>
+		/// <param name="errorMessage">An error message to go along with <paramref name="error"/>.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
 		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
 		public static Tunnel Create(
@@ -245,6 +247,7 @@ namespace Gerk.Crypto.EncryptedTransfer
 		/// <param name="publicKeyShaExtractor">A function that gets the SHA256 hash of a public key encoded as a CspBlob from elements of <paramref name="remoteIds"/>.</param>
 		/// <param name="remoteIdentity">The element of <paramref name="remoteIds"/> that matched the remote's public key. If there was an error or <paramref name="remoteIds"/> was <see langword="null"/> this may be left default.</param>
 		/// <param name="error">An error message for if something goes wrong.</param>
+		/// <param name="errorMessage">An error message to go along with <paramref name="error"/>.</param>
 		/// <param name="leaveOpen">True to not close the underlying stream when the <see cref="Tunnel"/> is closed.</param>
 		/// <returns>The new stream that wraps <paramref name="stream"/> with end to end encyption.</returns>
 		public static Tunnel Create<Id>(
