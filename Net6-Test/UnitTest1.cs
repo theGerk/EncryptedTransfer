@@ -1,15 +1,7 @@
-using Gerk.AsyncThen;
 using System;
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Net.Sockets;
 using System.Security.Cryptography;
-using System.Text;
-using System.Text.Unicode;
-using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -17,7 +9,24 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 {
 	public static class UnitTest1
 	{
-		public static ushort reciver(Stream stream, byte[] local, byte[] remote, string send)
+		//public static async Task<(Tunnel, Tunnel)> createPair()
+		//{
+		//	TcpListener server = new TcpListener(System.Net.IPAddress.Loopback, 0);
+		//	server.Start();
+		//	TcpClient client = new TcpClient();
+		//	client.Connect((System.Net.IPEndPoint)server.LocalEndpoint);
+
+		//	using var c = new RSACryptoServiceProvider();
+		//	using var d = new RSACryptoServiceProvider();
+		//	using var sha = SHA256.Create();
+
+		//	return (
+		//		await Task.Run(() => Tunnel.Create(client.GetStream(), c, new byte[][] { SHA256.HashData(d.ExportCspBlob(false)) }, out var _, out var err1, out var errm1),
+		//		await Task.Run(() => Tunnel.Create(client.GetStream(), d, new byte[][] { SHA256.HashData(c.ExportCspBlob(false)) }, out var _, out var eer2, out var errm2)
+		//	);
+		//}
+
+		public static O RunSide<O>(Stream stream, byte[] local, byte[] remote, Action<BinaryWriter> write, Func<BinaryReader, O> read)
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportCspBlob(local);
@@ -26,29 +35,11 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 				throw new Exception(errm);
 			using var reader = new BinaryReader(tunnel);
 			using var writer = new BinaryWriter(tunnel);
-
-			writer.Write(send);
+			write(writer);
 			tunnel.FlushWriter();
-			var line = reader.ReadUInt16();
-			tunnel.FlushReader();
-			return line;
+			return read(reader);
 		}
 
-		public static string sender(Stream stream, byte[] local, byte[] remote, ushort send)
-		{
-			using var rsa = new RSACryptoServiceProvider();
-			rsa.ImportCspBlob(local);
-			using var tunnel = Tunnel.Create(stream, rsa, new byte[][] { remote }, out _, out var err, out var errm);
-			if (err != TunnelCreationError.NoError)
-				throw new Exception(errm);
-			using var reader = new BinaryReader(tunnel);
-			using var writer = new BinaryWriter(tunnel);
-			writer.Write(send);
-			tunnel.FlushWriter();
-			var line = reader.ReadString();
-			tunnel.FlushReader();
-			return line;
-		}
 
 		[Fact]
 		public static async Task Maintest()
@@ -56,7 +47,7 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 			TcpListener server = new TcpListener(System.Net.IPAddress.Loopback, 0);
 			server.Start();
 			TcpClient client = new TcpClient();
-			client.Connect((server.LocalEndpoint as System.Net.IPEndPoint));
+			client.Connect((System.Net.IPEndPoint)server.LocalEndpoint);
 
 			using var c = new RSACryptoServiceProvider();
 			using var d = new RSACryptoServiceProvider();
@@ -67,17 +58,11 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 
 
 
-			var sendTask = Task.Run(() => sender(client.GetStream(), c.ExportCspBlob(true), SHA256.HashData(d.ExportCspBlob(false)), msg));
-			var reciveTask = Task.Run(() => reciver(server.AcceptTcpClient().GetStream(), d.ExportCspBlob(true), SHA256.HashData(c.ExportCspBlob(false)), response));
+			var sendTask = Task.Run(() => RunSide(client.GetStream(), c.ExportCspBlob(true), SHA256.HashData(d.ExportCspBlob(false)), bw => bw.Write(msg), br => br.ReadString()));
+			var reciveTask = Task.Run(() => RunSide(server.AcceptTcpClient().GetStream(), d.ExportCspBlob(true), SHA256.HashData(c.ExportCspBlob(false)), bw => bw.Write(response), br => br.ReadUInt16()));
 			await Task.WhenAll(sendTask, reciveTask);
 			Assert.True(await sendTask == response);
 			Assert.True(await reciveTask == msg);
-		}
-
-		[Fact]
-		public static async Task FlushwriterRepeatedly()
-		{
-
 		}
 	}
 }
