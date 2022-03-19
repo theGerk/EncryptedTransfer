@@ -1,0 +1,1 @@
+This is a library to handle secure encrypted stream between two programs over the open internet.
