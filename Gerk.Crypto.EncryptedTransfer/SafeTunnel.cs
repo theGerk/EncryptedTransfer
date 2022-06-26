@@ -45,6 +45,7 @@ namespace Gerk.Crypto.EncryptedTransfer
 			{
 				var result = reader.Read(buffer, offset, (int)remainingInBlockToRead);
 				underlyingTunnel.FlushReader();
+				remainingInBlockToRead = 0;
 				return result;
 			}
 			else
