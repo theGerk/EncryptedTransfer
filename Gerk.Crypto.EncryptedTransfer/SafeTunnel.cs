@@ -58,18 +58,20 @@ namespace Gerk.Crypto.EncryptedTransfer
 			if (remainingInBlockToRead == 0)
 				remainingInBlockToRead = reader.ReadUInt32();
 
-			if (count >= remainingInBlockToRead)
+
+			var bytesRead = reader.Read(buffer, offset, count >= remainingInBlockToRead ? (int)remainingInBlockToRead : count);
+
+			if (bytesRead >= remainingInBlockToRead)
 			{
-				var result = reader.Read(buffer, offset, (int)remainingInBlockToRead);
 				underlyingTunnel.FlushReader();
 				remainingInBlockToRead = 0;
-				return result;
 			}
 			else
 			{
-				remainingInBlockToRead -= (uint)count;
-				return reader.Read(buffer, offset, count);
+				remainingInBlockToRead -= (uint)bytesRead;
 			}
+
+			return bytesRead;
 		}
 
 		/// <inheritdoc/>
@@ -86,11 +88,20 @@ namespace Gerk.Crypto.EncryptedTransfer
 			underlyingTunnel.FlushWriter();
 		}
 
+#if NETSTANDARD2_1_OR_GREATER || NETCOREAPP3_0_OR_GREATER
 		public async override ValueTask DisposeAsync()
 		{
 			await writer.DisposeAsync();
 			reader.Dispose();
 			await underlyingTunnel.DisposeAsync();
+		}
+#endif
+		/// <inheritdoc/>
+		public override void Close()
+		{
+			writer.Close();
+			reader.Close();
+			underlyingTunnel.Close();
 		}
 	}
 }

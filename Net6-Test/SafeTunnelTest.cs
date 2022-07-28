@@ -1,42 +1,29 @@
-using System;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Net.Sockets;
 using System.Security.Cryptography;
+using System.Text;
 using System.Threading.Tasks;
+using Gerk.Crypto.EncryptedTransfer;
 using Xunit;
 
-namespace Gerk.Crypto.EncryptedTransfer.Test
+namespace Net6_Test
 {
-	public static class UnitTest1
+	public static class SafeTunnelTest
 	{
-		//public static async Task<(Tunnel, Tunnel)> createPair()
-		//{
-		//	TcpListener server = new TcpListener(System.Net.IPAddress.Loopback, 0);
-		//	server.Start();
-		//	TcpClient client = new TcpClient();
-		//	client.Connect((System.Net.IPEndPoint)server.LocalEndpoint);
-
-		//	using var c = new RSACryptoServiceProvider();
-		//	using var d = new RSACryptoServiceProvider();
-		//	using var sha = SHA256.Create();
-
-		//	return (
-		//		await Task.Run(() => Tunnel.Create(client.GetStream(), c, new byte[][] { SHA256.HashData(d.ExportCspBlob(false)) }, out var _, out var err1, out var errm1),
-		//		await Task.Run(() => Tunnel.Create(client.GetStream(), d, new byte[][] { SHA256.HashData(c.ExportCspBlob(false)) }, out var _, out var eer2, out var errm2)
-		//	);
-		//}
-
 		public static O RunSide<O>(Stream stream, byte[] local, byte[] remote, Action<BinaryWriter> write, Func<BinaryReader, O> read)
 		{
 			using var rsa = new RSACryptoServiceProvider();
 			rsa.ImportCspBlob(local);
-			using var tunnel = Tunnel.Create(stream, rsa, new byte[][] { remote }, out _, out var err, out var errm);
+			using var rawtunnel = Tunnel.Create(stream, rsa, new byte[][] { remote }, out _, out var err, out var errm);
 			if (err != TunnelCreationError.NoError)
 				throw new Exception(errm);
+			using var tunnel = new SafeTunnel(rawtunnel);
 			using var reader = new BinaryReader(tunnel);
 			using var writer = new BinaryWriter(tunnel);
 			write(writer);
-			tunnel.FlushWriter();
 			return read(reader);
 		}
 
@@ -61,8 +48,8 @@ namespace Gerk.Crypto.EncryptedTransfer.Test
 			var sendTask = Task.Run(() => RunSide(client.GetStream(), c.ExportCspBlob(true), SHA256.HashData(d.ExportCspBlob(false)), bw => bw.Write(msg), br => br.ReadString()));
 			var reciveTask = Task.Run(() => RunSide(server.AcceptTcpClient().GetStream(), d.ExportCspBlob(true), SHA256.HashData(c.ExportCspBlob(false)), bw => bw.Write(response), br => br.ReadUInt16()));
 			await Task.WhenAll(sendTask, reciveTask);
-			Assert.True(await sendTask == response);
-			Assert.True(await reciveTask == msg);
+			Assert.Equal(response, await sendTask);
+			Assert.Equal(msg, await reciveTask);
 		}
 	}
 }
