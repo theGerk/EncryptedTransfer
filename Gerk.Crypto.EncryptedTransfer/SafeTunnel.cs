@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 
 namespace Gerk.Crypto.EncryptedTransfer
 {
+	/// <summary>
+	/// Wraps the <see cref="Tunnel"/> so that you no longer need to use <see cref="Tunnel.FlushReader"/> and <see cref="Tunnel.FlushWriter"/>. There is a loss of efficency with this and <see cref="Tunnel"/> is prefered.
+	/// </summary>
 	public class SafeTunnel : Stream
 	{
 		Tunnel underlyingTunnel;
@@ -14,6 +17,11 @@ namespace Gerk.Crypto.EncryptedTransfer
 		BinaryReader reader;
 		uint remainingInBlockToRead = 0;
 
+		/// <summary>
+		/// Constructs <see cref="SafeTunnel"/> out of a working <see cref="Tunnel"/>.
+		/// </summary>
+		/// <param name="tunnel">The tunnel to be wrapped.</param>
+		/// <param name="leaveOpen">Should <paramref name="tunnel"/> be left open when after disposal.</param>
 		public SafeTunnel(
 			Tunnel tunnel
 #if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
