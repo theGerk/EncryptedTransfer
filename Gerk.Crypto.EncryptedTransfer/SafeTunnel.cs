@@ -14,6 +14,23 @@ namespace Gerk.Crypto.EncryptedTransfer
 		BinaryReader reader;
 		uint remainingInBlockToRead = 0;
 
+		public SafeTunnel(
+			Tunnel tunnel
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			, bool leaveOpen = false
+#endif
+			)
+		{
+			underlyingTunnel = tunnel;
+#if NETSTANDARD2_1_OR_GREATER || NET5_0_OR_GREATER
+			writer = new BinaryWriter(tunnel, Encoding.UTF8, leaveOpen);
+			reader = new BinaryReader(tunnel, Encoding.UTF8, leaveOpen);
+#else
+			writer = new BinaryWriter(tunnel);
+			reader = new BinaryReader(tunnel);
+#endif
+		}
+
 		/// <inheritdoc/>
 		public override bool CanRead => underlyingTunnel.CanRead;
 
@@ -67,6 +84,13 @@ namespace Gerk.Crypto.EncryptedTransfer
 			writer.Write((uint)count);
 			writer.Write(buffer, offset, count);
 			underlyingTunnel.FlushWriter();
+		}
+
+		public async override ValueTask DisposeAsync()
+		{
+			await writer.DisposeAsync();
+			reader.Dispose();
+			await underlyingTunnel.DisposeAsync();
 		}
 	}
 }
